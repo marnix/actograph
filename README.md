@@ -1,5 +1,7 @@
 # Actograph
 
+[![CI](https://github.com/marnix/actograph/actions/workflows/ci.yml/badge.svg)](https://github.com/marnix/actograph/actions/workflows/ci.yml)
+
 A local-first action management CLI built with [Jazz](https://jazz.tools/) and TypeScript.
 
 **Status:** Very early stage development. May never progress beyond experimentation.
