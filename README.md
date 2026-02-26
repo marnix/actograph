@@ -26,10 +26,10 @@ npm install
 npm run build
 ```
 
-To run the built code:
+To run the CLI:
 
 ```bash
-node dist/index.js
+./actograph --help
 ```
 
 For development with auto-rebuild:
@@ -43,6 +43,11 @@ npm run dev
 - [Jazz Documentation](https://jazz.tools/docs/vanilla)
 - [Jazz Installation Guide](https://jazz.tools/docs/vanilla/project-setup)
 - [Jazz GitHub](https://github.com/garden-co/jazz)
+
+## TODO
+
+- Choose appropriate default database location for all platforms (Linux, macOS, Windows)
+- Make WSL2 use the Windows location for seamless cross-environment access
 
 ## Future Plans
 

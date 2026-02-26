@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -e
+
+REQUIRED_NODE_VERSION=24
+
+# Check if nvm is available and use it
+if command -v nvm &> /dev/null; then
+    nvm use --lts &> /dev/null || true
+elif [ -f "$HOME/.nvm/nvm.sh" ]; then
+    source "$HOME/.nvm/nvm.sh"
+    nvm use --lts &> /dev/null || true
+fi
+
+# Check Node.js is installed
+if ! command -v node &> /dev/null; then
+    echo "Error: Node.js is not installed" >&2
+    echo "Please install Node.js ${REQUIRED_NODE_VERSION}.x or later" >&2
+    exit 1
+fi
+
+# Check Node.js version
+NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
+if [ "$NODE_VERSION" -lt "$REQUIRED_NODE_VERSION" ]; then
+    echo "Error: Node.js ${REQUIRED_NODE_VERSION}.x or later is required" >&2
+    echo "Current version: $(node -v)" >&2
+    exit 1
+fi
+
+# Run the CLI
+exec node "$(dirname "$0")/dist/index.js" "$@"
