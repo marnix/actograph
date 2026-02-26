@@ -1,3 +1,6 @@
+// storage.ts - SQLite database setup with WAL mode for concurrent access
+// Uses XDG directories on Linux, timeout for automatic retry on locks
+
 import Database from "better-sqlite3";
 import { homedir } from "os";
 import { join } from "path";
@@ -7,6 +10,8 @@ import { mkdirSync } from "fs";
  * Get the data directory for storing application data.
  * Uses XDG Base Directory specification on Linux for better integration.
  * Falls back to ~/.local/share/actograph if XDG_DATA_HOME is not set.
+ * 
+ * TODO: Add Windows/macOS path support (see README TODO section)
  */
 export function getDataDir(): string {
   const home = homedir();

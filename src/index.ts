@@ -1,3 +1,7 @@
+// index.ts - CLI entry point
+// Jazz handles all data persistence and sync - we just define schemas and commands
+// No traditional CRUD code needed - Jazz's CoValues are automatically persisted and synced
+
 import { Command } from "commander";
 import { CoMap, co } from "jazz-tools";
 import { openDatabase } from "./storage.js";

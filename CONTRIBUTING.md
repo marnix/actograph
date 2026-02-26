@@ -83,3 +83,30 @@ TypeScript compilation uses incremental builds:
 - Linux: `~/.local/share/actograph/` (XDG spec)
 - Configurable via `XDG_DATA_HOME` environment variable
 - TODO: Windows and macOS paths, WSL2 integration
+
+## Guidelines for LLM-Assisted Development
+
+When working on this codebase with LLM assistance:
+
+### Jazz Architecture
+- Jazz is not just a library - it's the entire sync/storage layer
+- No traditional CRUD code needed - Jazz CoValues are automatically persisted
+- Define schemas using `co.map()`, `co.list()`, etc.
+- Data syncs automatically across devices when online
+
+### Code Style
+- Keep inline comments focused on "why", not "what"
+- Add TODO comments for deferred decisions
+- Use incremental builds (`npm run build` uses `tsc --build`)
+- Co-locate tests with source files (`.test.ts`)
+
+### Testing
+- Always clean up resources in `afterEach` hooks
+- Use temporary directories for database tests
+- Run `npm test` before committing
+
+### Common Patterns
+- SQLite with WAL mode for concurrent access
+- 5-second timeout for automatic retry on locks
+- Commander for CLI parsing with subcommands
+- XDG directories on Linux for data storage
