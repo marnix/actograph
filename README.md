@@ -19,6 +19,27 @@ Actograph is focused on managing **actions** (not generic tasks) with these core
 - **TypeScript**: Type-safe development
 - **Dual interface**: CLI for terminal use, web app for browser use
 
+## Build Instructions
+
+Prerequisites: Node.js 24.x or later
+
+```bash
+npm install
+npm run build
+```
+
+To run the built code:
+
+```bash
+node dist/index.js
+```
+
+For development with auto-rebuild:
+
+```bash
+npm run dev
+```
+
 ## Resources
 
 - [Jazz Documentation](https://jazz.tools/docs/vanilla)
