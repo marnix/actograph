@@ -13,6 +13,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "check": "npm run typecheck && npm run format:check && npm test",
+    "ci": "npm run check && npm run build",
     "clean": "rm -rf dist .tsbuildinfo"
   },
   "dependencies": {

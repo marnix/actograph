@@ -30,6 +30,7 @@ actograph/
 - `npm run format` - Format all files with Prettier
 - `npm run format:check` - Check formatting without changing files
 - `npm run check` - Run all checks (typecheck + format + test)
+- `npm run ci` - Full CI validation (check + build)
 - `npm run clean` - Remove build artifacts
 
 ## Adding New Commands
@@ -79,6 +80,7 @@ Jazz is the entire sync/storage layer, not just a library:
 - Tests use temporary directories for database operations
 - Always clean up resources in `afterEach` hooks
 - Run `npm run check` before committing (runs typecheck, format check, and tests)
+- Run `npm run ci` to simulate CI locally (check + build)
 
 ## Technology Stack
 
