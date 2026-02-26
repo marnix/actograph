@@ -33,7 +33,7 @@ npm run build
 To run the CLI:
 
 ```bash
-./actograph --help
+./acto --help
 ```
 
 For development with auto-rebuild:

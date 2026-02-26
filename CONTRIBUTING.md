@@ -9,7 +9,7 @@ actograph/
 │   ├── storage.ts        # SQLite database configuration
 │   └── *.test.ts         # Unit tests (co-located with source)
 ├── dist/                 # Compiled JavaScript output
-├── actograph             # Wrapper script for running CLI
+├── acto                  # Wrapper script for running CLI
 └── dev-local/            # Local development notes (not tracked)
 ```
 
@@ -18,11 +18,11 @@ actograph/
 1. Install Node.js 24.x (use nvm: `nvm use`)
 2. Install dependencies: `npm install`
 3. Build: `npm run build`
-4. Run: `./actograph`
+4. Run: `./acto`
 
 ## Quick Commands
 
-- `npm run run` - Build and run CLI (incremental build)
+- `npm run acto` - Build and run CLI (incremental build)
 - `npm run dev` - Watch mode for development
 - `npm test` - Run tests once
 - `npm run test:watch` - Run tests in watch mode
