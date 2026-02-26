@@ -8,6 +8,10 @@ export class Action extends CoMap {
   completed = co.boolean;
 }
 
+// Commander provides CLI argument parsing with support for:
+// - Subcommands (future: add, list, complete, etc.)
+// - Global options (future: --db-path, --verbose, etc.)
+// - Built-in help generation
 const program = new Command();
 
 program

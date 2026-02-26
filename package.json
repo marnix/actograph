@@ -3,11 +3,14 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc --build",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
+    "run": "npm run build && ./actograph",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist .tsbuildinfo"
   },
   "dependencies": {
     "better-sqlite3": "^11.0.0",

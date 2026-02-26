@@ -2,6 +2,10 @@
 
 A local-first action management CLI built with [Jazz](https://jazz.tools/) and TypeScript.
 
+**Status:** Very early stage development. May never progress beyond experimentation.
+
+**Platform:** Currently only developed and tested on Linux.
+
 ## Concept
 
 Actograph is focused on managing **actions** (not generic tasks) with these core features:
