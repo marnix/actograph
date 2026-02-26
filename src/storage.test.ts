@@ -31,13 +31,13 @@ describe("Storage Infrastructure", () => {
     // Insert action
     const insert = db.prepare("INSERT INTO actions (action) VALUES (?)");
     const result = insert.run("Complete the project documentation");
-    
+
     expect(result.changes).toBe(1);
 
     // Read back with new statement (simulating separate connection)
     const select = db.prepare("SELECT action FROM actions WHERE id = ?");
     const row = select.get(result.lastInsertRowid) as { action: string };
-    
+
     expect(row.action).toBe("Complete the project documentation");
   });
 
@@ -55,7 +55,7 @@ describe("Storage Infrastructure", () => {
 
     const select = db.prepare("SELECT action FROM actions ORDER BY id");
     const rows = select.all() as Array<{ action: string }>;
-    
+
     expect(rows).toHaveLength(2);
     expect(rows[0].action).toBe("First action");
     expect(rows[1].action).toBe("Second action");

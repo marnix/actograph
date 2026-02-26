@@ -27,6 +27,9 @@ actograph/
 - `npm test` - Run tests once
 - `npm run test:watch` - Run tests in watch mode
 - `npm run typecheck` - Type check without building
+- `npm run format` - Format all files with Prettier
+- `npm run format:check` - Check formatting without changing files
+- `npm run check` - Run all checks (typecheck + format + test)
 - `npm run clean` - Remove build artifacts
 
 ## Adding New Commands
@@ -45,13 +48,16 @@ program
 ## Architecture
 
 ### Jazz's Role
+
 Jazz is the entire sync/storage layer, not just a library:
+
 - Define schemas using `co.map()`, `co.list()`, etc.
 - Jazz CoValues are automatically persisted and synced
 - No traditional CRUD code needed
 - Data syncs automatically across devices when online
 
 ### Storage Layer
+
 - SQLite with WAL mode for concurrent access
 - 5-second timeout for automatic retry on locks
 - XDG directories on Linux (`~/.local/share/actograph/`)
@@ -60,6 +66,8 @@ Jazz is the entire sync/storage layer, not just a library:
 
 ## Code Style
 
+- Use Prettier with default settings for all formatting
+- Run `npm run format` before committing
 - Inline comments explain "why", not "what"
 - Add TODO comments for deferred decisions
 - Co-locate tests with source files (`.test.ts`)
@@ -70,7 +78,7 @@ Jazz is the entire sync/storage layer, not just a library:
 - Use Vitest for all tests
 - Tests use temporary directories for database operations
 - Always clean up resources in `afterEach` hooks
-- Run `npm test` before committing
+- Run `npm run check` before committing (runs typecheck, format check, and tests)
 
 ## Technology Stack
 
