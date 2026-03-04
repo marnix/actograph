@@ -1,66 +1,46 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, rmSync } from "fs";
-import { tmpdir } from "os";
-import { join } from "path";
-import { SqliteAdapter } from "./sqlite-adapter.js";
+import { describe, it, expect, beforeEach } from "vitest";
+import { setupJazzTestSync, createJazzTestAccount } from "jazz-tools/testing";
+import { co, Account, CoMap } from "jazz-tools";
+import { Action } from "../domain/action.js";
 
-describe("SqliteAdapter Integration", () => {
-  let testDir: string;
-  let adapter: SqliteAdapter;
+class TestAccount extends Account {
+  root = co.ref(CoMap);
+}
 
-  beforeEach(() => {
-    testDir = mkdtempSync(join(tmpdir(), "actograph-test-"));
-    adapter = new SqliteAdapter(join(testDir, "test.db"));
+describe("Jazz Concurrent Access Integration", () => {
+  beforeEach(async () => {
+    await setupJazzTestSync();
   });
 
-  afterEach(() => {
-    adapter.close();
-    rmSync(testDir, { recursive: true, force: true });
-  });
-
-  it("should store and retrieve an action", () => {
-    const db = adapter.getDatabase();
-
-    // Create table
-    db.exec(`
-      CREATE TABLE actions (
-        id INTEGER PRIMARY KEY,
-        action TEXT NOT NULL
+  it("should handle 10 parallel action creations", async () => {
+    // Create 10 accounts in parallel
+    const accounts = await Promise.all(
+      Array.from({ length: 10 }, (_, i) =>
+        createJazzTestAccount({
+          AccountSchema: TestAccount,
+          isCurrentActiveAccount: i === 0,
+        })
       )
-    `);
+    );
 
-    // Insert action
-    const insert = db.prepare("INSERT INTO actions (action) VALUES (?)");
-    const result = insert.run("Complete the project documentation");
-
-    expect(result.changes).toBe(1);
-
-    // Read back with new statement (simulating separate connection)
-    const select = db.prepare("SELECT action FROM actions WHERE id = ?");
-    const row = select.get(result.lastInsertRowid) as { action: string };
-
-    expect(row.action).toBe("Complete the project documentation");
-  });
-
-  it("should handle concurrent reads", () => {
-    const db = adapter.getDatabase();
-
-    db.exec(`
-      CREATE TABLE actions (
-        id INTEGER PRIMARY KEY,
-        action TEXT NOT NULL
+    // Create 10 actions in parallel, each from a different account
+    const createPromises = accounts.map((account, i) =>
+      Action.create(
+        {
+          title: `Action ${i + 1}`,
+          completed: false,
+        },
+        { owner: account }
       )
-    `);
+    );
 
-    const insert = db.prepare("INSERT INTO actions (action) VALUES (?)");
-    insert.run("First action");
-    insert.run("Second action");
+    const actions = await Promise.all(createPromises);
 
-    const select = db.prepare("SELECT action FROM actions ORDER BY id");
-    const rows = select.all() as Array<{ action: string }>;
-
-    expect(rows).toHaveLength(2);
-    expect(rows[0].action).toBe("First action");
-    expect(rows[1].action).toBe("Second action");
+    // Verify all 10 actions were created successfully
+    expect(actions).toHaveLength(10);
+    actions.forEach((action, i) => {
+      expect(action.title).toBe(`Action ${i + 1}`);
+      expect(action.completed).toBe(false);
+    });
   });
 });
