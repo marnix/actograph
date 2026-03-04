@@ -1,25 +1,26 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import Database from "better-sqlite3";
 import { mkdtempSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
+import { SqliteAdapter } from "./sqlite-adapter.js";
 
-describe("Storage Infrastructure", () => {
+describe("SqliteAdapter Integration", () => {
   let testDir: string;
-  let db: Database.Database;
+  let adapter: SqliteAdapter;
 
   beforeEach(() => {
     testDir = mkdtempSync(join(tmpdir(), "actograph-test-"));
-    db = new Database(join(testDir, "test.db"), { timeout: 5000 });
-    db.pragma("journal_mode = WAL");
+    adapter = new SqliteAdapter(join(testDir, "test.db"));
   });
 
   afterEach(() => {
-    db.close();
+    adapter.close();
     rmSync(testDir, { recursive: true, force: true });
   });
 
   it("should store and retrieve an action", () => {
+    const db = adapter.getDatabase();
+
     // Create table
     db.exec(`
       CREATE TABLE actions (
@@ -42,6 +43,8 @@ describe("Storage Infrastructure", () => {
   });
 
   it("should handle concurrent reads", () => {
+    const db = adapter.getDatabase();
+
     db.exec(`
       CREATE TABLE actions (
         id INTEGER PRIMARY KEY,

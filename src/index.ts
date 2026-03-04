@@ -3,14 +3,9 @@
 // No traditional CRUD code needed - Jazz's CoValues are automatically persisted and synced
 
 import { Command } from "commander";
-import { CoMap, co } from "jazz-tools";
-import { openDatabase } from "./storage.js";
-
-// Action schema
-export class Action extends CoMap {
-  title = co.string;
-  completed = co.boolean;
-}
+import { SqliteAdapter } from "./adapters/sqlite-adapter.js";
+import { getDataDir } from "./storage.js";
+import { join } from "path";
 
 // Commander provides CLI argument parsing with support for:
 // - Subcommands (future: add, list, complete, etc.)
@@ -25,7 +20,8 @@ program
 
 program.parse();
 
-const db = openDatabase();
+const adapter = new SqliteAdapter(join(getDataDir(), "actograph.db"));
+const db = adapter.getDatabase();
 console.log("Actograph initialized");
 console.log("Database:", db.name);
-db.close();
+adapter.close();
