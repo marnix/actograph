@@ -59,10 +59,12 @@ program
 - **Automerge CRDT** for local-first storage with future merge support
 - Actions stored as a map keyed by ID in an Automerge document
 - Persisted as a single binary file (`.automerge`)
+- Concurrent access protected by VSDB-inspired hard-link locking
+  (`fs.linkSync` as atomic mutex, works on both Linux and Windows/NTFS)
+- `transact()` method holds the lock for the entire load→modify→save cycle
 - XDG directories on Linux (`~/.local/share/actograph/`)
 - Configurable via `XDG_DATA_HOME` environment variable
 - TODO: Windows and macOS paths, WSL2 integration
-- TODO: File locking for concurrent access
 - TODO: Multi-device sync via per-device files + Automerge merge
 
 ### Ports & Adapters
@@ -84,7 +86,8 @@ program
 - Use Vitest for all tests
 - Tests use temporary directories for database operations
 - Always clean up resources in `afterEach` hooks
-- Concurrent test uses worker threads for real parallelism (currently known-failing due to missing file locking)
+- Concurrent test uses child processes for real parallelism, retries until
+  actual lock contention is verified (at least 5 contentions observed)
 - Run `npm run check` before committing (runs typecheck, format check, and tests)
 - Run `npm run ci` to simulate CI locally (check + build)
 

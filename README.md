@@ -53,7 +53,6 @@ npm run dev
 
 - Choose appropriate default database location for all platforms (Linux, macOS, Windows)
 - Make WSL2 use the Windows location for seamless cross-environment access
-- Add file locking for concurrent access (see known-failing concurrent test)
 - Multi-device sync via per-device Automerge files + merge
 
 ## Future Plans
