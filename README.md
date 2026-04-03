@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/marnix/actograph/actions/workflows/ci.yml/badge.svg)](https://github.com/marnix/actograph/actions/workflows/ci.yml)
 
-A local-first action management CLI built with [Jazz](https://jazz.tools/) and TypeScript.
+A local-first action management CLI built with [Automerge](https://automerge.org/) and TypeScript.
 
 **Status:** Very early stage development. May never progress beyond experimentation.
 
@@ -15,11 +15,11 @@ Actograph is focused on managing **actions** (not generic tasks) with these core
 - **Action-oriented**: Every item is something that must be done
 - **Dependencies**: Actions can depend on other actions, providing helpful ordering
 - **Decomposition**: Actions can be broken down into sub-actions
-- **Local-first**: Data syncs across devices using Jazz's distributed database
+- **Local-first**: Data stored locally using Automerge CRDTs, with multi-device sync planned
 
 ## Technology
 
-- **[Jazz](https://jazz.tools/)**: Distributed database for local-first sync and storage
+- **[Automerge](https://automerge.org/)**: CRDT-based storage for local-first data
 - **TypeScript**: Type-safe development
 - **CLI**: Terminal-based interface
 
@@ -46,14 +46,15 @@ npm run dev
 
 ## Resources
 
-- [Jazz Documentation](https://jazz.tools/docs/vanilla)
-- [Jazz Installation Guide](https://jazz.tools/docs/vanilla/project-setup)
-- [Jazz GitHub](https://github.com/garden-co/jazz)
+- [Automerge Documentation](https://automerge.org/docs/)
+- [Automerge GitHub](https://github.com/automerge/automerge)
 
 ## TODO
 
 - Choose appropriate default database location for all platforms (Linux, macOS, Windows)
 - Make WSL2 use the Windows location for seamless cross-environment access
+- Add file locking for concurrent access (see known-failing concurrent test)
+- Multi-device sync via per-device Automerge files + merge
 
 ## Future Plans
 
