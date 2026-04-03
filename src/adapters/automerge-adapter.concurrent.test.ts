@@ -2,24 +2,22 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { Worker } from "worker_threads";
+import { execFile } from "child_process";
 import { AutomergeAdapter } from "./automerge-adapter.js";
+
+const workerScript = join(import.meta.dirname, "worker-add-complete.ts");
 
 function runWorker(dbPath: string, index: number): Promise<string> {
   return new Promise((resolve, reject) => {
-    const w = new Worker(
-      join(import.meta.dirname, "worker-add-complete.ts"),
-      { workerData: { dbPath, index } },
+    execFile(
+      process.execPath,
+      ["--experimental-strip-types", workerScript, dbPath, String(index)],
+      (err, stdout) => (err ? reject(err) : resolve(stdout)),
     );
-    w.on("message", resolve);
-    w.on("error", reject);
-    w.on("exit", (code) => {
-      if (code !== 0) reject(new Error(`Worker exited with code ${code}`));
-    });
   });
 }
 
-describe("Concurrent CLI invocations (worker threads)", () => {
+describe("Concurrent CLI invocations (child processes)", () => {
   let testDir: string;
   let dbPath: string;
 
@@ -32,8 +30,7 @@ describe("Concurrent CLI invocations (worker threads)", () => {
     rmSync(testDir, { recursive: true, force: true });
   });
 
-  // Known-failing: no file locking yet, concurrent writers clobber each other.
-  it.fails("should handle 100 truly parallel add-and-complete cycles", async () => {
+  it("should handle 100 truly parallel add-and-complete cycles", async () => {
     const n = 100;
     const ids = await Promise.all(
       Array.from({ length: n }, (_, i) => runWorker(dbPath, i)),
@@ -49,5 +46,5 @@ describe("Concurrent CLI invocations (worker threads)", () => {
       expect(action, `action ${id} should exist`).toBeDefined();
       expect(action!.completed, `action ${id} should be completed`).toBe(true);
     }
-  }, 30_000);
+  }, 60_000);
 });

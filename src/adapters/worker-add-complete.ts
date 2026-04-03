@@ -1,31 +1,23 @@
-// Worker script: performs one add-then-complete cycle against a shared db file.
-import { workerData, parentPort } from "worker_threads";
+// Child process script: performs one add-then-complete cycle against a shared db file.
+// Run as: node --experimental-strip-types worker-add-complete.ts <dbPath> <index>
 import { randomUUID } from "crypto";
 import { AutomergeAdapter } from "./automerge-adapter.ts";
 
-const { dbPath, index } = workerData as { dbPath: string; index: number };
+const [dbPath, index] = process.argv.slice(2);
 
 const id = randomUUID();
-const title = `task-${index}`;
+const adapter = new AutomergeAdapter(dbPath);
 
-// add
-{
-  const adapter = new AutomergeAdapter(dbPath);
-  const actions = adapter.load();
-  actions.push({ id, title, completed: false });
-  adapter.save(actions);
-  adapter.close();
-}
+adapter.transact((actions) => [
+  ...actions,
+  { id, title: `task-${index}`, completed: false },
+]);
 
-// complete
-{
-  const adapter = new AutomergeAdapter(dbPath);
-  const actions = adapter.load();
+adapter.transact((actions) => {
   const action = actions.find((a) => a.id === id);
   if (!action) throw new Error(`Action ${id} not found after add`);
   action.completed = true;
-  adapter.save(actions);
-  adapter.close();
-}
+  return actions;
+});
 
-parentPort!.postMessage(id);
+process.stdout.write(id);
