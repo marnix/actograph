@@ -1,7 +1,9 @@
 // Action schema - domain entity
-import { CoMap, co } from "jazz-tools";
+import { co, z } from "jazz-tools";
 
-export class Action extends CoMap {
-  title = co.string;
-  completed = co.boolean;
-}
+export const Action = co.map({
+  title: z.string(),
+  completed: z.boolean(),
+});
+
+export type Action = co.loaded<typeof Action>;

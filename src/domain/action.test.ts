@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { setupJazzTestSync, createJazzTestAccount } from "jazz-tools/testing";
-import { co, Account, CoMap } from "jazz-tools";
+import { co, Account } from "jazz-tools";
 import { Action } from "./action.js";
 
-class TestAccount extends Account {
-  root = co.ref(CoMap);
-}
+const TestAccount = co.account({
+  root: co.map({}),
+  profile: co.profile(),
+});
 
 describe("Action", () => {
   beforeEach(async () => {
