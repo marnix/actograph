@@ -38,21 +38,26 @@ function sleep(ms: number): void {
   Atomics.wait(sleepArr, 0, 0, ms);
 }
 
-function acquireLock(filePath: string): string {
+function acquireLock(filePath: string): {
+  lockPath: string;
+  contended: boolean;
+} {
   const lockPath = filePath + LOCK_SUFFIX;
   const tmpPath = filePath + `.__${randomUUID()}.tmp`;
   writeFileSync(tmpPath, "");
+  let contended = false;
   const deadline = Date.now() + LOCK_TIMEOUT_MS;
   while (Date.now() < deadline) {
     try {
       linkSync(tmpPath, lockPath);
       unlinkSync(tmpPath);
-      return lockPath;
+      return { lockPath, contended };
     } catch (e: any) {
       if (e.code !== "EEXIST") {
         unlinkSync(tmpPath);
         throw e;
       }
+      contended = true;
       sleep(1 + Math.floor(Math.random() * 10));
     }
   }
@@ -104,6 +109,7 @@ function applyActions(
 
 export class AutomergeAdapter implements StoragePort {
   private filePath: string;
+  contentionCount = 0;
 
   constructor(filePath: string) {
     this.filePath = filePath;
@@ -114,7 +120,8 @@ export class AutomergeAdapter implements StoragePort {
   }
 
   save(actions: Action[]): void {
-    const lockPath = acquireLock(this.filePath);
+    const { lockPath, contended } = acquireLock(this.filePath);
+    if (contended) this.contentionCount++;
     try {
       const doc = loadDoc(this.filePath);
       const updated = applyActions(doc, actions);
@@ -126,7 +133,8 @@ export class AutomergeAdapter implements StoragePort {
 
   /** Run a load→modify→save cycle under a single lock. */
   transact(fn: (actions: Action[]) => Action[]): void {
-    const lockPath = acquireLock(this.filePath);
+    const { lockPath, contended } = acquireLock(this.filePath);
+    if (contended) this.contentionCount++;
     try {
       const doc = loadDoc(this.filePath);
       const actions = fn(docToActions(doc));

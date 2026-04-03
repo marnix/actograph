@@ -1,5 +1,5 @@
 // Child process script: performs one add-then-complete cycle against a shared db file.
-// Run as: node --experimental-strip-types worker-add-complete.ts <dbPath> <index>
+// Outputs "id:contentionCount" to stdout.
 import { randomUUID } from "crypto";
 import { AutomergeAdapter } from "./automerge-adapter.ts";
 
@@ -20,4 +20,4 @@ adapter.transact((actions) => {
   return actions;
 });
 
-process.stdout.write(id);
+process.stdout.write(`${id}:${adapter.contentionCount}`);
