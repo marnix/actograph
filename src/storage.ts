@@ -1,7 +1,6 @@
-// storage.ts - SQLite database setup with WAL mode for concurrent access
-// Uses XDG directories on Linux, timeout for automatic retry on locks
+// storage.ts - Storage utilities
+// Uses XDG directories on Linux
 
-import Database from "better-sqlite3";
 import { homedir } from "os";
 import { join } from "path";
 import { mkdirSync } from "fs";
@@ -23,18 +22,6 @@ export function getDataDir(): string {
   return dataDir;
 }
 
-/**
- * Open the SQLite database with optimal settings for concurrent access.
- *
- * - timeout: 5000ms allows automatic retry on SQLITE_BUSY errors
- * - WAL mode: Enables multiple readers + one writer concurrency
- */
-export function openDatabase(): Database.Database {
-  const dbPath = join(getDataDir(), "actograph.db");
-  const db = new Database(dbPath, { timeout: 5000 });
-
-  // Enable Write-Ahead Logging for better concurrency
-  db.pragma("journal_mode = WAL");
-
-  return db;
+export function getDbPath(): string {
+  return join(getDataDir(), "actograph.automerge");
 }
