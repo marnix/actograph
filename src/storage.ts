@@ -21,3 +21,7 @@ export function getDataDir(): string {
   mkdirSync(dataDir, { recursive: true });
   return dataDir;
 }
+
+export function getDbPath(): string {
+  return join(getDataDir(), "actograph.automerge");
+}

@@ -1,7 +1,8 @@
 // Port interface for storage operations
-import Database from "better-sqlite3";
+import type { Action } from "../domain/action.js";
 
 export interface StoragePort {
-  getDatabase(): Database.Database;
+  load(): Action[];
+  save(actions: Action[]): void;
   close(): void;
 }

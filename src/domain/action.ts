@@ -1,9 +1,7 @@
-// Action schema - domain entity
-import { co, z } from "jazz-tools";
+// Action domain entity - plain TypeScript, no framework dependency
 
-export const Action = co.map({
-  title: z.string(),
-  completed: z.boolean(),
-});
-
-export type Action = co.loaded<typeof Action>;
+export interface Action {
+  id: string;
+  title: string;
+  completed: boolean;
+}
