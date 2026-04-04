@@ -12,10 +12,14 @@ A local-first action management CLI built with [Automerge](https://automerge.org
 
 Actograph is focused on managing **actions** (not generic tasks) with these core features:
 
-- **Action-oriented**: Every item is something that must be done
-- **Dependencies**: Actions can depend on other actions, providing helpful ordering
-- **Decomposition**: Actions can be broken down into sub-actions
+- **Action-oriented**: Every item is a command — something that must be done — with a minimal set of states (Open, Active, Done, Skipped)
+- **Identity**: Every action has a unique human-friendly identifier (more memorable/typeable than a sequential number or GUID, and stable across edits). The exact format is still to be determined
+- **Dependencies**: Actions can depend on other actions ("A is necessary for B"), providing a computed work order. The "necessary for" dependency also comes in an *owning* variant, where the parent action owns and is defined by its sub-actions
+- **Priority**: A separate "more important than" relation combines with dependencies to determine overall work order
+- **Task groups**: Actions can be grouped for triaging (priority, project, version), with group-level dependencies inherited by members
 - **Local-first**: Data stored locally using Automerge CRDTs, with multi-device sync planned
+
+See [design/task-list-application.md](design/task-list-application.md) for the original design exploration document with more detailed concepts and ideas.
 
 ## Technology
 
