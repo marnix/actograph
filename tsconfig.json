@@ -14,9 +14,5 @@
     "tsBuildInfoFile": ".tsbuildinfo"
   },
   "include": ["src/**/*"],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "src/adapters/worker-add-complete.test-helper.ts"
-  ]
+  "exclude": ["node_modules", "dist", "src/**/*.test.ts", "src/**/*.test-*.ts"]
 }
