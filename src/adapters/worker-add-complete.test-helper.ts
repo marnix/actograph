@@ -6,7 +6,7 @@ import { AutomergeAdapter } from "./automerge-adapter.ts";
 const [dbPath, index] = process.argv.slice(2);
 
 const id = randomUUID();
-const adapter = new AutomergeAdapter(dbPath);
+const adapter = new AutomergeAdapter(dbPath!);
 
 adapter.transact((actions) => [
   ...actions,

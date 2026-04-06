@@ -80,6 +80,7 @@ program
 - Add TODO comments for deferred decisions
 - Co-locate tests with source files (`.test.ts`)
 - Use incremental builds (`tsc --build`)
+- Avoid non-null assertions (`!`) in production code — prefer structural safety (destructuring, type guards, `charAt` over indexing). Test files may use `!` where the alternative is overly verbose.
 
 ## Testing
 

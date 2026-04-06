@@ -30,8 +30,8 @@ describe("AutomergeAdapter Integration", () => {
     adapter2.close();
 
     expect(loaded).toHaveLength(2);
-    expect(loaded[0].title).toBe("First");
-    expect(loaded[1].completed).toBe(true);
+    expect(loaded[0]!.title).toBe("First");
+    expect(loaded[1]!.completed).toBe(true);
   });
 
   it("should start empty when no file exists", () => {

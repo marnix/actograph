@@ -21,7 +21,7 @@ function runWorker(
       (err, stdout) => {
         if (err) return reject(err);
         const [id, c] = stdout.split(":");
-        resolve({ id, contention: Number(c) });
+        resolve({ id: id!, contention: Number(c) });
       },
     );
   });
