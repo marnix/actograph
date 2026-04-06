@@ -22,10 +22,15 @@ import {
   unlinkSync,
 } from "fs";
 import { randomUUID } from "crypto";
-import type { Action } from "../domain/action.js";
+import type { Action, Prerequisite } from "../domain/action.js";
 import type { StoragePort } from "../ports/storage-port.js";
 
-type ActionRecord = { title: string; completed: boolean };
+type PrerequisiteRecord = { actionId: string; createdAt: number };
+type ActionRecord = {
+  title: string;
+  completed: boolean;
+  prerequisites: PrerequisiteRecord[];
+};
 type DocSchema = { actions: Record<string, ActionRecord> };
 
 const LOCK_SUFFIX = ".lock";
@@ -84,6 +89,10 @@ function docToActions(doc: Automerge.Doc<DocSchema>): Action[] {
     id,
     title: a.title,
     completed: a.completed,
+    prerequisites: (a.prerequisites ?? []).map((p) => ({
+      actionId: p.actionId,
+      createdAt: p.createdAt,
+    })),
   }));
 }
 
@@ -98,10 +107,21 @@ function applyActions(
     }
     for (const a of actions) {
       if (!d.actions[a.id]) {
-        d.actions[a.id] = { title: a.title, completed: a.completed };
+        d.actions[a.id] = {
+          title: a.title,
+          completed: a.completed,
+          prerequisites: (a.prerequisites ?? []).map((p) => ({
+            actionId: p.actionId,
+            createdAt: p.createdAt,
+          })),
+        };
       } else {
         d.actions[a.id].title = a.title;
         d.actions[a.id].completed = a.completed;
+        d.actions[a.id].prerequisites = (a.prerequisites ?? []).map((p) => ({
+          actionId: p.actionId,
+          createdAt: p.createdAt,
+        }));
       }
     }
   });
