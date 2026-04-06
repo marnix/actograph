@@ -20,8 +20,8 @@ describe("AutomergeAdapter Integration", () => {
   it("should persist and reload actions", () => {
     const adapter = new AutomergeAdapter(dbPath);
     adapter.save([
-      { id: "1", title: "First", completed: false },
-      { id: "2", title: "Second", completed: true },
+      { id: "1", title: "First", completed: false, prerequisites: [] },
+      { id: "2", title: "Second", completed: true, prerequisites: [] },
     ]);
     adapter.close();
 
@@ -43,10 +43,12 @@ describe("AutomergeAdapter Integration", () => {
   it("should handle multiple saves", () => {
     const adapter = new AutomergeAdapter(dbPath);
 
-    adapter.save([{ id: "1", title: "First", completed: false }]);
     adapter.save([
-      { id: "1", title: "First", completed: false },
-      { id: "2", title: "Second", completed: false },
+      { id: "1", title: "First", completed: false, prerequisites: [] },
+    ]);
+    adapter.save([
+      { id: "1", title: "First", completed: false, prerequisites: [] },
+      { id: "2", title: "Second", completed: false, prerequisites: [] },
     ]);
 
     const loaded = adapter.load();

@@ -58,8 +58,8 @@ npm run dev
 Roughly in order, but not set in stone:
 
 1. ~~**Human-friendly action IDs** — Replace UUIDs with short memorable identifiers (stable across edits). Format TBD~~ ✅ Done: CVCVCVC syllable IDs with profanity filtering
-2. **Dependencies** — "A needs B": store and display which actions depend on which
-3. **"More important than" relation** — A separate priority ordering between actions
+2. ~~**Dependencies** — "A needs B": store and display which actions depend on which~~ ✅ Done: `acto req` command
+3. ~~**"More important than" relation** — A separate priority ordering between actions~~ ✅ Done: `acto prio` command
 4. **Work order display** — Show actions in topological order based on dependencies and priority
 5. **Action lifecycle** — Replace the boolean `completed` with states (Open, Active, Done, Skipped) and transitions
 6. **CLI/UX design** — Design a concise command vocabulary (e.g., `acto do` to add, `acto done` to complete, `acto go` to start, `acto skip`, etc.) and consider `--filter` flags for listing

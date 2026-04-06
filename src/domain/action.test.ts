@@ -7,6 +7,7 @@ describe("Action", () => {
       id: "test-1",
       title: "Test action",
       completed: false,
+      prerequisites: [],
     };
 
     expect(action.title).toBe("Test action");

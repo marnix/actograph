@@ -10,7 +10,7 @@ const adapter = new AutomergeAdapter(dbPath);
 
 adapter.transact((actions) => [
   ...actions,
-  { id, title: `task-${index}`, completed: false },
+  { id, title: `task-${index}`, completed: false, prerequisites: [] },
 ]);
 
 adapter.transact((actions) => {

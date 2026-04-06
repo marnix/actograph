@@ -51,6 +51,7 @@ program
   .action(() => {
     const adapter = new AutomergeAdapter(getDbPath());
     const actions = adapter.load();
+    const priorities = adapter.loadPriorities();
     adapter.close();
     if (actions.length === 0) {
       console.log("No actions.");
@@ -62,7 +63,12 @@ program
         a.prerequisites.length > 0
           ? `  req: ${a.prerequisites.map((p) => p.actionId).join(", ")}`
           : "";
-      console.log(`[${mark}] ${a.title}  (${a.id})${reqs}`);
+      const lowerPrio = priorities
+        .filter((p) => p.higher === a.id)
+        .map((p) => p.lower);
+      const prioStr =
+        lowerPrio.length > 0 ? `  prio over: ${lowerPrio.join(", ")}` : "";
+      console.log(`[${mark}] ${a.title}  (${a.id})${reqs}${prioStr}`);
     }
   });
 
@@ -109,6 +115,35 @@ program
     adapter.save(actions);
     adapter.close();
     console.log(`Added ${added} prerequisite(s)`);
+  });
+
+program
+  .command("prio")
+  .description(
+    "Set priorities: acto prio A B C means A has priority over B, B has priority over C",
+  )
+  .argument("<ids...>", "Action IDs (or prefixes) in priority order")
+  .action((ids: string[]) => {
+    if (ids.length < 2) {
+      console.error("Need at least two action IDs");
+      process.exit(1);
+    }
+    const adapter = new AutomergeAdapter(getDbPath());
+    const actions = adapter.load();
+    const resolved = ids.map((prefix) => findAction(actions, prefix));
+    const priorities = adapter.loadPriorities();
+    let added = 0;
+    for (let i = 0; i < resolved.length - 1; i++) {
+      const higher = resolved[i].id;
+      const lower = resolved[i + 1].id;
+      if (!priorities.some((p) => p.higher === higher && p.lower === lower)) {
+        priorities.push({ higher, lower, createdAt: Date.now() });
+        added++;
+      }
+    }
+    adapter.savePriorities(priorities);
+    adapter.close();
+    console.log(`Added ${added} priority relation(s)`);
   });
 
 program.parse();
