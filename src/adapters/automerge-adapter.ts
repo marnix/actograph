@@ -22,11 +22,21 @@ import {
   unlinkSync,
 } from "fs";
 import { randomUUID } from "crypto";
-import type { Action } from "../domain/action.js";
+import type { Action, Prerequisite } from "../domain/action.js";
+import type { Priority } from "../domain/priority.js";
 import type { StoragePort } from "../ports/storage-port.js";
 
-type ActionRecord = { title: string; completed: boolean };
-type DocSchema = { actions: Record<string, ActionRecord> };
+type PrerequisiteRecord = { actionId: string; createdAt: number };
+type ActionRecord = {
+  title: string;
+  completed: boolean;
+  prerequisites: PrerequisiteRecord[];
+};
+type PriorityRecord = { higher: string; lower: string; createdAt: number };
+type DocSchema = {
+  actions: Record<string, ActionRecord>;
+  priorities: PriorityRecord[];
+};
 
 const LOCK_SUFFIX = ".lock";
 const LOCK_TIMEOUT_MS = 30_000;
@@ -76,7 +86,7 @@ function releaseLock(lockPath: string): void {
 function loadDoc(filePath: string): Automerge.Doc<DocSchema> {
   return existsSync(filePath)
     ? Automerge.load<DocSchema>(readFileSync(filePath))
-    : Automerge.from<DocSchema>({ actions: {} });
+    : Automerge.from<DocSchema>({ actions: {}, priorities: [] });
 }
 
 function docToActions(doc: Automerge.Doc<DocSchema>): Action[] {
@@ -84,6 +94,10 @@ function docToActions(doc: Automerge.Doc<DocSchema>): Action[] {
     id,
     title: a.title,
     completed: a.completed,
+    prerequisites: (a.prerequisites ?? []).map((p) => ({
+      actionId: p.actionId,
+      createdAt: p.createdAt,
+    })),
   }));
 }
 
@@ -98,10 +112,21 @@ function applyActions(
     }
     for (const a of actions) {
       if (!d.actions[a.id]) {
-        d.actions[a.id] = { title: a.title, completed: a.completed };
+        d.actions[a.id] = {
+          title: a.title,
+          completed: a.completed,
+          prerequisites: (a.prerequisites ?? []).map((p) => ({
+            actionId: p.actionId,
+            createdAt: p.createdAt,
+          })),
+        };
       } else {
         d.actions[a.id].title = a.title;
         d.actions[a.id].completed = a.completed;
+        d.actions[a.id].prerequisites = (a.prerequisites ?? []).map((p) => ({
+          actionId: p.actionId,
+          createdAt: p.createdAt,
+        }));
       }
     }
   });
@@ -139,6 +164,37 @@ export class AutomergeAdapter implements StoragePort {
       const doc = loadDoc(this.filePath);
       const actions = fn(docToActions(doc));
       const updated = applyActions(doc, actions);
+      writeFileSync(this.filePath, Automerge.save(updated));
+    } finally {
+      releaseLock(lockPath);
+    }
+  }
+
+  loadPriorities(): Priority[] {
+    const doc = loadDoc(this.filePath);
+    return (doc.priorities ?? []).map((p) => ({
+      higher: p.higher,
+      lower: p.lower,
+      createdAt: p.createdAt,
+    }));
+  }
+
+  savePriorities(priorities: Priority[]): void {
+    const { lockPath, contended } = acquireLock(this.filePath);
+    if (contended) this.contentionCount++;
+    try {
+      const doc = loadDoc(this.filePath);
+      const updated = Automerge.change(doc, (d) => {
+        if (!d.priorities) d.priorities = [];
+        while (d.priorities.length > 0) d.priorities.splice(0, 1);
+        for (const p of priorities) {
+          d.priorities.push({
+            higher: p.higher,
+            lower: p.lower,
+            createdAt: p.createdAt,
+          });
+        }
+      });
       writeFileSync(this.filePath, Automerge.save(updated));
     } finally {
       releaseLock(lockPath);
