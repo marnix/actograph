@@ -24,7 +24,9 @@ function findAction<T extends { id: string }>(actions: T[], prefix: string): T {
     );
     process.exit(1);
   }
-  return matches[0];
+  // length is exactly 1 here; destructuring is safe
+  const [match] = matches as [T];
+  return match;
 }
 
 program
@@ -101,17 +103,16 @@ program
     const actions = adapter.load();
     const resolved = ids.map((prefix) => findAction(actions, prefix));
     let added = 0;
-    for (let i = 1; i < resolved.length; i++) {
-      const dependent = actions.find((a) => a.id === resolved[i].id)!;
-      const reqId = resolved[i - 1].id;
-      if (!dependent.prerequisites.some((p) => p.actionId === reqId)) {
-        dependent.prerequisites.push({
-          actionId: reqId,
+    resolved.reduce((prev, curr) => {
+      if (!curr.prerequisites.some((p) => p.actionId === prev.id)) {
+        curr.prerequisites.push({
+          actionId: prev.id,
           createdAt: Date.now(),
         });
         added++;
       }
-    }
+      return curr;
+    });
     adapter.save(actions);
     adapter.close();
     console.log(`Added ${added} prerequisite(s)`);
@@ -133,14 +134,19 @@ program
     const resolved = ids.map((prefix) => findAction(actions, prefix));
     const priorities = adapter.loadPriorities();
     let added = 0;
-    for (let i = 0; i < resolved.length - 1; i++) {
-      const higher = resolved[i].id;
-      const lower = resolved[i + 1].id;
-      if (!priorities.some((p) => p.higher === higher && p.lower === lower)) {
-        priorities.push({ higher, lower, createdAt: Date.now() });
+    resolved.reduce((prev, curr) => {
+      if (
+        !priorities.some((p) => p.higher === prev.id && p.lower === curr.id)
+      ) {
+        priorities.push({
+          higher: prev.id,
+          lower: curr.id,
+          createdAt: Date.now(),
+        });
         added++;
       }
-    }
+      return curr;
+    });
     adapter.savePriorities(priorities);
     adapter.close();
     console.log(`Added ${added} priority relation(s)`);

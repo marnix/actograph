@@ -31,7 +31,8 @@ function buildProfaneSubstrings(): string[] {
         let fits = true;
         for (let i = 0; i < word.length; i++) {
           const expectConsonant = (i + offset) % 2 === 0;
-          if (expectConsonant ? !cSet.has(word[i]) : !vSet.has(word[i])) {
+          const ch = word.charAt(i);
+          if (expectConsonant ? !cSet.has(ch) : !vSet.has(ch)) {
             fits = false;
             break;
           }

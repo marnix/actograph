@@ -121,12 +121,15 @@ function applyActions(
           })),
         };
       } else {
-        d.actions[a.id].title = a.title;
-        d.actions[a.id].completed = a.completed;
-        d.actions[a.id].prerequisites = (a.prerequisites ?? []).map((p) => ({
-          actionId: p.actionId,
-          createdAt: p.createdAt,
-        }));
+        const existing = d.actions[a.id];
+        if (existing) {
+          existing.title = a.title;
+          existing.completed = a.completed;
+          existing.prerequisites = (a.prerequisites ?? []).map((p) => ({
+            actionId: p.actionId,
+            createdAt: p.createdAt,
+          }));
+        }
       }
     }
   });
