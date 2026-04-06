@@ -53,16 +53,21 @@ npm run dev
 - [Automerge Documentation](https://automerge.org/docs/)
 - [Automerge GitHub](https://github.com/automerge/automerge)
 
-## TODO
+## Roadmap / Ideas
 
-- Choose appropriate default database location for all platforms (Linux, macOS, Windows)
-- Make WSL2 use the Windows location for seamless cross-environment access
-- Multi-device sync via per-device Automerge files + merge
+Roughly in order, but not set in stone:
 
-## Future Plans
-
-- Web app interface for browser-based access
-- Multi-user/team collaboration features
+1. **Human-friendly action IDs** — Replace UUIDs with short memorable identifiers (stable across edits). Format TBD
+2. **Dependencies** — "A needs B": store and display which actions depend on which
+3. **"More important than" relation** — A separate priority ordering between actions
+4. **Work order display** — Show actions in topological order based on dependencies and priority
+5. **Action lifecycle** — Replace the boolean `completed` with states (Open, Active, Done, Skipped) and transitions
+6. **CLI/UX design** — Design a concise command vocabulary (e.g., `acto do` to add, `acto done` to complete, `acto go` to start, `acto skip`, etc.) and consider `--filter` flags for listing
+7. **Multi-device sync** — Add a `merge` command that loads a second `.automerge` file and merges it into the local one
+8. **Cross-platform storage** — Appropriate default DB locations for macOS (`~/Library/Application Support`) and Windows (`%LOCALAPPDATA%`), including WSL2 using the Windows location
+9. **Terminal UI** — Interactive terminal interface (consider [Ink](https://github.com/vadimdemedes/ink) for React-based Node.js TUI)
+10. **Web UI** — Browser-based interface
+11. **Multi-user/team collaboration**
 
 ## License
 
