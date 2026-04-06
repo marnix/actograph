@@ -2,6 +2,8 @@
 
 How to give each action a unique, human-friendly, stable identifier.
 
+**Status**: Implemented in `src/domain/action-id.ts` — 7-character CVCVCVC strings with profanity filtering via `cuss`.
+
 ## Requirements
 
 - **Stable**: does not change when the action is edited
@@ -51,19 +53,31 @@ The alternating pattern makes IDs pronounceable and therefore memorable, while s
 
 ## Offensive Words
 
-Consonant-vowel patterns will occasionally produce real words, including potentially offensive ones in various languages. Mitigation options:
+Consonant-vowel patterns will occasionally produce real words, including potentially offensive ones in various languages.
 
-1. **Blocklist**: maintain a list of known offensive strings (across major languages) and reject/regenerate on match. Simple and effective for the most common cases, but never complete — there are too many languages and cultural contexts.
+### Analysis
 
-2. **Restrict the alphabet**: drop certain consonants to make offensive words less likely. For example, removing `f`, `s`, `c`, `k` eliminates many English profanities, but also shrinks the keyspace significantly and doesn't help for other languages.
+Using the [`cuss`](https://www.npmjs.com/package/cuss) package (multi-language profanity lists with sureness ratings, covering English, French, Spanish, Italian, Portuguese, and Arabic — ~5700 words total), combined with [`profane-words`](https://www.npmjs.com/package/profane-words):
 
-3. **Accept and document**: acknowledge that with random generation, occasional unfortunate strings will appear. Provide a `rename` or `regenerate` command so users can replace an ID they find objectionable. This is the pragmatic approach — no blocklist is ever complete across all languages and slang.
+- ~490 profane words can appear as substrings of CVCVCVC strings
+- Breakdown by length: 4×2-letter, 54×3-letter, 117×4-letter, 137×5-letter, 130×6-letter, 48×7-letter
 
-4. **Hybrid**: use a small blocklist for the most obvious English/European profanities, combined with a regenerate command as a safety net.
+Rejection rates when filtering generated IDs:
 
-**Recommendation**: option 4 (small blocklist + regenerate command). A short blocklist catches the worst cases with minimal maintenance, and the regenerate escape hatch handles everything else. The blocklist doesn't need to be perfect — it just needs to prevent the most jarring first impressions.
+| Filter strategy       | Words checked | Rejection rate | Regenerations per ID |
+| --------------------- | ------------- | -------------- | -------------------- |
+| All substring matches | 490           | ~23%           | ~1.3                 |
+| Only words ≥ 3 chars  | 486           | ~13%           | ~1.15                |
+| Only words ≥ 4 chars  | 432           | ~2.7%          | ~1.03                |
+| Only words ≥ 5 chars  | 315           | ~0.2%          | ~1.002               |
 
-Note: regenerating an ID means all references to the old ID (in scripts, notes, etc.) break. This is an acceptable trade-off since it should be rare and only done deliberately by the user.
+### Recommendation
+
+Filter on profane substrings ≥ 3 characters. A ~13% rejection rate means regenerating roughly 1 in 8 times — invisible to the user since generation is instant. The 2-letter matches (`fu`, `ho`, `bi`) are borderline, but 3-letter ones like `fag`, `cum`, `nig`, `jap` are important to catch.
+
+Use `cuss` as the primary word list because it is multi-language, has sureness ratings (filter on rating ≥ 1 to reduce false positives from words like `beaver` or `god`), is MIT licensed, and has TypeScript types.
+
+Additionally, a `regenerate` command could be considered in the future, allowing users to replace any ID they find objectionable — since no blocklist is ever complete across all languages and slang.
 
 ## Open Questions
 

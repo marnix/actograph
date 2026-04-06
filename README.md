@@ -13,7 +13,7 @@ A local-first action management CLI built with [Automerge](https://automerge.org
 Actograph is focused on managing **actions** (not generic tasks) with these core features:
 
 - **Action-oriented**: Every item is a command — something that must be done — with a minimal set of states (Open, Active, Done, Skipped)
-- **Identity**: Every action has a unique human-friendly identifier (more memorable/typeable than a sequential number or GUID, and stable across edits). The exact format is still to be determined
+- **Identity**: Every action has a unique human-friendly identifier — a pronounceable 7-character consonant-vowel string (e.g., `takapup`, `zebepod`), stable across edits, with prefix matching for quick reference. See [design/action-naming.md](design/action-naming.md)
 - **Dependencies**: Actions can depend on other actions ("A is necessary for B"), providing a computed work order. The "necessary for" dependency also comes in an _owning_ variant, where the parent action owns and is defined by its sub-actions
 - **Priority**: A separate "more important than" relation combines with dependencies to determine overall work order
 - **Task groups**: Actions can be grouped for triaging (priority, project, version), with group-level dependencies inherited by members
@@ -57,7 +57,7 @@ npm run dev
 
 Roughly in order, but not set in stone:
 
-1. **Human-friendly action IDs** — Replace UUIDs with short memorable identifiers (stable across edits). Format TBD
+1. ~~**Human-friendly action IDs** — Replace UUIDs with short memorable identifiers (stable across edits). Format TBD~~ ✅ Done: CVCVCVC syllable IDs with profanity filtering
 2. **Dependencies** — "A needs B": store and display which actions depend on which
 3. **"More important than" relation** — A separate priority ordering between actions
 4. **Work order display** — Show actions in topological order based on dependencies and priority

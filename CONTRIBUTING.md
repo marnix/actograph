@@ -57,7 +57,7 @@ program
 ### Storage Layer
 
 - **Automerge CRDT** for local-first storage with future merge support
-- Actions stored as a map keyed by ID in an Automerge document
+- Actions stored as a map keyed by ID (7-character CVCVCVC syllable strings) in an Automerge document
 - Persisted as a single binary file (`.automerge`)
 - Concurrent access protected by VSDB-inspired hard-link locking
   (`fs.linkSync` as atomic mutex, works on both Linux and Windows/NTFS)

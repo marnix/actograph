@@ -1,7 +1,7 @@
 // index.ts - CLI entry point
 
 import { Command } from "commander";
-import { randomUUID } from "crypto";
+import { generateActionId } from "./domain/action-id.js";
 import { AutomergeAdapter } from "./adapters/automerge-adapter.js";
 import { getDbPath } from "./storage.js";
 
@@ -19,7 +19,7 @@ program
   .action((title: string) => {
     const adapter = new AutomergeAdapter(getDbPath());
     const actions = adapter.load();
-    actions.push({ id: randomUUID(), title, completed: false });
+    actions.push({ id: generateActionId(), title, completed: false });
     adapter.save(actions);
     adapter.close();
     console.log(`Added: "${title}" (${actions.length} actions total)`);
