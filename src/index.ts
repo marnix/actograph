@@ -2,6 +2,7 @@
 
 import { Command } from "commander";
 import { generateActionId } from "./domain/action-id.js";
+import type { ActionState } from "./domain/action.js";
 import { computeWorkOrder } from "./domain/work-order.js";
 import { spDecompose } from "./domain/sp-decompose.js";
 import { renderSP } from "./domain/render-sp.js";
@@ -97,19 +98,32 @@ program
     console.log(output);
   });
 
-program
-  .command("done")
-  .description("Mark an action as done")
-  .argument("<id>", "Action ID (or prefix)")
-  .action((idPrefix: string) => {
-    const adapter = new AutomergeAdapter(dbPath());
-    const actions = adapter.load();
-    const action = findAction(actions, idPrefix);
-    action.state = "done";
-    adapter.save(actions);
-    adapter.close();
-    console.log(`Done: "${action.title}"`);
-  });
+function stateCommand(
+  name: string,
+  description: string,
+  newState: ActionState,
+  label: string,
+): void {
+  program
+    .command(name)
+    .description(description)
+    .argument("<id>", "Action ID (or prefix)")
+    .action((idPrefix: string) => {
+      const adapter = new AutomergeAdapter(dbPath());
+      const actions = adapter.load();
+      const action = findAction(actions, idPrefix);
+      action.state = newState;
+      adapter.save(actions);
+      adapter.close();
+      console.log(`${label}: "${action.title}"`);
+    });
+}
+
+stateCommand("done", "Mark an action as done", "done", "Done");
+stateCommand("go", "Start working on an action", "active", "Started");
+stateCommand("donot", "Pause an active action", "open", "Paused");
+stateCommand("skip", "Skip an action", "skipped", "Skipped");
+stateCommand("redo", "Reopen a done or skipped action", "open", "Reopened");
 
 program
   .command("req")

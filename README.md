@@ -12,7 +12,7 @@ A local-first action management CLI built with [Automerge](https://automerge.org
 
 Actograph is focused on managing **actions** (not generic tasks) with these core features:
 
-- **Action-oriented**: Every item is a command — something that must be done — with a minimal set of states (Open, Active, Done, Skipped)
+- **Action-oriented**: Every item is a command — something that must be done — with four states: Open `[ ]`, Active `[▶]`, Done `[✓]`, Skipped `[–]`
 - **Identity**: Every action has a unique human-friendly identifier — a pronounceable 7-character consonant-vowel string (e.g., `takapup`, `zebepod`), stable across edits, with prefix matching for quick reference. See [design/action-naming.md](design/action-naming.md)
 - **Dependencies**: Actions can depend on other actions ("A is necessary for B"), providing a computed work order. The "necessary for" dependency also comes in an _owning_ variant, where the parent action owns and is defined by its sub-actions
 - **Priority**: A separate "more important than" relation combines with dependencies to determine overall work order
@@ -61,8 +61,8 @@ Roughly in order, but not set in stone:
 2. ~~**Dependencies** — "A needs B": store and display which actions depend on which~~ ✅ Done: `acto req` command
 3. ~~**"More important than" relation** — A separate priority ordering between actions~~ ✅ Done: `acto prio` command
 4. ~~**Work order display** — Show actions as a series-parallel graph based on dependencies and priority~~ ✅ Done: `acto list` shows SP-structured output with `>>` and `||` markers
-5. **Action lifecycle** — Replace the boolean `completed` with states (Open, Active, Done, Skipped) and transitions
-6. **CLI/UX design** — Design a concise command vocabulary (e.g., `acto do` to add, `acto done` to complete, `acto go` to start, `acto skip`, etc.) and consider `--filter` flags for listing
+5. ~~**Action lifecycle** — Replace the boolean `completed` with states (Open, Active, Done, Skipped) and transitions~~ ✅ Done: 4-state model with `go`, `done`, `donot`, `skip`, `redo` commands
+6. ~~**CLI/UX design** — Design a concise command vocabulary~~ ✅ Done: `do`, `done`, `go`, `donot`, `skip`, `redo`, `list`, `req`, `prio`
 7. **Multi-device sync** — Add a `merge` command that loads a second `.automerge` file and merges it into the local one
 8. **Cross-platform storage** — Appropriate default DB locations for macOS (`~/Library/Application Support`) and Windows (`%LOCALAPPDATA%`), including WSL2 using the Windows location
 9. **Terminal UI** — Interactive terminal interface (consider [Ink](https://github.com/vadimdemedes/ink) for React-based Node.js TUI)
