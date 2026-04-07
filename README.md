@@ -57,8 +57,8 @@ npm run dev
 
 - [Task List Application](design/task-list-application.md) — Original design exploration: concepts, states, dependencies, work order, task groups
 - [Action Naming](design/action-naming.md) — CVCVCVC syllable IDs with profanity filtering
-- [CLI Commands](design/cli-commands.md) — Command vocabulary design decisions
-- [Dependencies](design/dependencies.md) — Prerequisites and priorities between actions
+- [CLI Commands](design/cli-commands.md) — Command vocabulary, tags, and listing options
+- [Dependencies](design/dependencies.md) — Prerequisites, priorities, and tag inheritance
 
 ## Roadmap / Ideas
 
@@ -74,13 +74,14 @@ Roughly in order, but not set in stone:
 8. ~~**Cycle prevention in CLI** — Call `wouldCreateCycle` from `req` and `prio` commands to reject cycle-introducing dependencies at input time~~ ✅ Done: both commands check against the full work order graph before persisting
 9. ~~**Remove dependencies/priorities** — Add `unreq` and `unprio` commands to undo `req`/`prio` relations~~ ✅ Done: domain-level `removePrerequisite`/`removePriority` with CLI commands
 10. ~~**Hide completed/skipped actions** — Filter Done and Skipped actions from `list` by default (as the design doc specifies), with a flag like `--all` to show everything~~ ✅ Done: `list` shows open/active only, `list -a` shows all
-11. **Tags** — Any action description can include `++sometagname` inline. An action whose description is _only_ a tag name (e.g., `++urgent`) becomes a tag action; its dependencies are inherited by all actions that mention that tag. This implements the "task groups" concept from the design doc (triaging by priority, project, version) without a separate grouping mechanism
-12. **Multi-device sync** — Add a `merge` command that loads a second `.automerge` file and merges it into the local one
-13. **Cycle robustness after merge** — Handle cycles that appear via concurrent edits after multi-device merge (detect, warn, and gracefully degrade the work order rather than crash)
-14. **Cross-platform storage** — Appropriate default DB locations for macOS (`~/Library/Application Support`) and Windows (`%LOCALAPPDATA%`), including WSL2 using the Windows location
-15. **Terminal UI** — Interactive terminal interface (consider [Ink](https://github.com/vadimdemedes/ink) for React-based Node.js TUI)
-16. **Web UI** — Browser-based interface
-17. **Multi-user/team collaboration**
+11. ~~**Tags** — Any action description can include `++sometagname` inline. An action whose description is _only_ a tag name (e.g., `++urgent`) becomes a tag action; its dependencies are inherited by all actions that mention that tag. This implements the "task groups" concept from the design doc (triaging by priority, project, version) without a separate grouping mechanism~~ ✅ Done: `++tagname` parsing, tag actions with inherited prereqs/prios, `list --tags`, tag actions excluded from `list`/`list -a`, state commands blocked on tag actions, `++tagname` lookup in `req`/`prio`/`unreq`/`unprio`
+12. **Edit action title** — `acto edit <id>` opens the current title for inline editing using `node:readline/promises` (built-in, no extra dependency). Adding or removing `++tag` tokens in the title should automatically update the work order (tag inheritance is computed dynamically, so this should work out of the box). Attention point: verify that changing tags on an action correctly adjusts its position in the work order
+13. **Multi-device sync** — Add a `merge` command that loads a second `.automerge` file and merges it into the local one
+14. **Cycle robustness after merge** — Handle cycles that appear via concurrent edits after multi-device merge (detect, warn, and gracefully degrade the work order rather than crash)
+15. **Cross-platform storage** — Appropriate default DB locations for macOS (`~/Library/Application Support`) and Windows (`%LOCALAPPDATA%`), including WSL2 using the Windows location
+16. **Terminal UI** — Interactive terminal interface (consider [Ink](https://github.com/vadimdemedes/ink) for React-based Node.js TUI)
+17. **Web UI** — Browser-based interface
+18. **Multi-user/team collaboration**
 
 ## License
 
