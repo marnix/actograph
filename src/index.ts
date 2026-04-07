@@ -237,8 +237,8 @@ function stateCommand(
 
 stateCommand("done", "Mark an action as done", "done", "Done");
 stateCommand("go", "Start working on an action", "active", "Started");
-stateCommand("donot", "Pause an active action", "open", "Paused");
-stateCommand("skip", "Skip an action", "skipped", "Skipped");
+stateCommand("stop", "Pause an active action", "open", "Stopped");
+stateCommand("donot", "Skip an action", "skipped", "Skipped");
 stateCommand("redo", "Reopen a done or skipped action", "open", "Reopened");
 
 program
