@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { Action, ActionState } from "./action.js";
-import { canTransition } from "./action.js";
+import { canTransition, transitionAction } from "./action.js";
 
 describe("Action", () => {
   it("should create an action with title and state", () => {
@@ -46,5 +46,34 @@ describe("canTransition", () => {
 
   it.each(forbidden)("%s → %s is forbidden", (from, to) => {
     expect(canTransition(from, to)).toBe(false);
+  });
+});
+
+describe("transitionAction", () => {
+  function makeAction(state: ActionState): Action {
+    return { id: "t", title: "test", state, prerequisites: [] };
+  }
+
+  it("mutates state on valid transition", () => {
+    const a = makeAction("open");
+    transitionAction(a, "active");
+    expect(a.state).toBe("active");
+  });
+
+  it("throws on invalid transition", () => {
+    const a = makeAction("done");
+    expect(() => transitionAction(a, "active")).toThrow(
+      'Cannot transition from "done" to "active"',
+    );
+  });
+
+  it("does not mutate state on invalid transition", () => {
+    const a = makeAction("done");
+    try {
+      transitionAction(a, "active");
+    } catch {
+      /* expected */
+    }
+    expect(a.state).toBe("done");
   });
 });
