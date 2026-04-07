@@ -3,8 +3,12 @@
 import { Command } from "commander";
 import { generateActionId } from "./domain/action-id.js";
 import type { ActionState } from "./domain/action.js";
-import { canTransition } from "./domain/action.js";
-import { computeWorkOrder } from "./domain/work-order.js";
+import { transitionAction } from "./domain/action.js";
+import {
+  computeWorkOrder,
+  addPrerequisite,
+  addPriority,
+} from "./domain/work-order.js";
 import { spDecompose } from "./domain/sp-decompose.js";
 import { renderSP } from "./domain/render-sp.js";
 import { AutomergeAdapter } from "./adapters/automerge-adapter.js";
@@ -113,12 +117,13 @@ function stateCommand(
       const adapter = new AutomergeAdapter(dbPath());
       const actions = adapter.load();
       const action = findAction(actions, idPrefix);
-      if (!canTransition(action.state, newState)) {
+      try {
+        transitionAction(action, newState);
+      } catch (e) {
         adapter.close();
-        console.error(`Cannot ${name} action in state "${action.state}"`);
+        console.error((e as Error).message);
         process.exit(1);
       }
-      action.state = newState;
       adapter.save(actions);
       adapter.close();
       console.log(`${label}: "${action.title}"`);
@@ -144,21 +149,21 @@ program
     }
     const adapter = new AutomergeAdapter(dbPath());
     const actions = adapter.load();
+    const priorities = adapter.loadPriorities();
     const resolved = ids.map((prefix) => findAction(actions, prefix));
-    let added = 0;
-    resolved.reduce((prev, curr) => {
-      if (!curr.prerequisites.some((p) => p.actionId === prev.id)) {
-        curr.prerequisites.push({
-          actionId: prev.id,
-          createdAt: Date.now(),
-        });
-        added++;
-      }
-      return curr;
-    });
+    try {
+      resolved.reduce((prev, curr) => {
+        addPrerequisite(actions, priorities, prev.id, curr.id);
+        return curr;
+      });
+    } catch (e) {
+      adapter.close();
+      console.error((e as Error).message);
+      process.exit(1);
+    }
     adapter.save(actions);
     adapter.close();
-    console.log(`Added ${added} prerequisite(s)`);
+    console.log(`Added prerequisite(s)`);
   });
 
 program
@@ -176,23 +181,19 @@ program
     const actions = adapter.load();
     const resolved = ids.map((prefix) => findAction(actions, prefix));
     const priorities = adapter.loadPriorities();
-    let added = 0;
-    resolved.reduce((prev, curr) => {
-      if (
-        !priorities.some((p) => p.higher === prev.id && p.lower === curr.id)
-      ) {
-        priorities.push({
-          higher: prev.id,
-          lower: curr.id,
-          createdAt: Date.now(),
-        });
-        added++;
-      }
-      return curr;
-    });
+    try {
+      resolved.reduce((prev, curr) => {
+        addPriority(actions, priorities, prev.id, curr.id);
+        return curr;
+      });
+    } catch (e) {
+      adapter.close();
+      console.error((e as Error).message);
+      process.exit(1);
+    }
     adapter.savePriorities(priorities);
     adapter.close();
-    console.log(`Added ${added} priority relation(s)`);
+    console.log(`Added priority relation(s)`);
   });
 
 program.parse();
