@@ -2,6 +2,9 @@
 
 import { Command } from "commander";
 import { generateActionId } from "./domain/action-id.js";
+import { computeWorkOrder } from "./domain/work-order.js";
+import { spDecompose } from "./domain/sp-decompose.js";
+import { renderSP } from "./domain/render-sp.js";
 import { AutomergeAdapter } from "./adapters/automerge-adapter.js";
 import { getDbPath } from "./storage.js";
 
@@ -59,19 +62,16 @@ program
       console.log("No actions.");
       return;
     }
-    for (const a of actions) {
+    const actionMap = new Map(actions.map((a) => [a.id, a]));
+    const graph = computeWorkOrder(actions, priorities);
+    const sp = spDecompose(graph);
+    const output = renderSP(sp, (id) => {
+      const a = actionMap.get(id);
+      if (!a) return id;
       const mark = a.completed ? "✓" : " ";
-      const reqs =
-        a.prerequisites.length > 0
-          ? `  req: ${a.prerequisites.map((p) => p.actionId).join(", ")}`
-          : "";
-      const lowerPrio = priorities
-        .filter((p) => p.higher === a.id)
-        .map((p) => p.lower);
-      const prioStr =
-        lowerPrio.length > 0 ? `  prio over: ${lowerPrio.join(", ")}` : "";
-      console.log(`[${mark}] ${a.title}  (${a.id})${reqs}${prioStr}`);
-    }
+      return `[${mark}] ${a.title}  (${a.id})`;
+    });
+    console.log(output);
   });
 
 program
