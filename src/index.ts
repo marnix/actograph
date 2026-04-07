@@ -3,6 +3,7 @@
 import { Command } from "commander";
 import { generateActionId } from "./domain/action-id.js";
 import type { ActionState } from "./domain/action.js";
+import { canTransition } from "./domain/action.js";
 import { computeWorkOrder } from "./domain/work-order.js";
 import { spDecompose } from "./domain/sp-decompose.js";
 import { renderSP } from "./domain/render-sp.js";
@@ -112,6 +113,11 @@ function stateCommand(
       const adapter = new AutomergeAdapter(dbPath());
       const actions = adapter.load();
       const action = findAction(actions, idPrefix);
+      if (!canTransition(action.state, newState)) {
+        adapter.close();
+        console.error(`Cannot ${name} action in state "${action.state}"`);
+        process.exit(1);
+      }
       action.state = newState;
       adapter.save(actions);
       adapter.close();
