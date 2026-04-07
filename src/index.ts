@@ -3,12 +3,16 @@
 import { Command } from "commander";
 import { generateActionId } from "./domain/action-id.js";
 import { findAction } from "./cli/find-action.js";
+import {
+  buildAnnotations,
+  formatActionLabel,
+  formatTagLabel,
+} from "./cli/list-format.js";
 import type { ActionState } from "./domain/action.js";
 import { transitionAction } from "./domain/action.js";
 import { isTagTitle } from "./domain/tags.js";
 import {
   computeWorkOrder,
-  expandTagRelations,
   addPrerequisite,
   addPriority,
   removePrerequisite,
@@ -63,24 +67,13 @@ program
         console.log("No tag actions.");
         return;
       }
-      const tagMap = new Map(tagActions.map((a) => [a.id, a]));
+      const annotations = buildAnnotations(tagActions, tagActions, priorities);
       const graph = computeWorkOrder(tagActions, priorities);
-      const prioPreds = new Map<string, Set<string>>();
-      for (const p of priorities) {
-        if (tagMap.has(p.higher) && tagMap.has(p.lower)) {
-          if (!prioPreds.has(p.lower)) prioPreds.set(p.lower, new Set());
-          prioPreds.get(p.lower)!.add(p.higher);
-        }
-      }
       const sp = spDecompose(graph);
+      const tagMap = new Map(tagActions.map((a) => [a.id, a]));
       const output = renderSP(sp, (id) => {
         const a = tagMap.get(id);
-        if (!a) return id;
-        const prios = prioPreds.get(id);
-        const parts: string[] = [];
-        if (prios) parts.push(...Array.from(prios).map((p) => `prio:${p}`));
-        const suffix = parts.length > 0 ? `  ← ${parts.join(", ")}` : "";
-        return `${a.title}  (${a.id})${suffix}`;
+        return a ? formatTagLabel(a, annotations) : id;
       });
       console.log(output);
       return;
@@ -97,60 +90,17 @@ program
       console.log(opts.all ? "No actions." : "No open/active actions.");
       return;
     }
-    const actionMap = new Map(visible.map((a) => [a.id, a]));
+    const annotations = buildAnnotations(visible, actions, priorities);
     const graph = computeWorkOrder(
       visible,
       priorities,
       opts.all ? undefined : actions,
     );
-
-    // Build lookup: for each visible action, which visible actions
-    // are direct predecessors via req or prio?
-    const reqPreds = new Map<string, Set<string>>();
-    const prioPreds = new Map<string, Set<string>>();
-    for (const a of visible) {
-      // Direct and transitive-through-hidden prerequisite predecessors
-      for (const p of a.prerequisites) {
-        if (actionMap.has(p.actionId)) {
-          if (!reqPreds.has(a.id)) reqPreds.set(a.id, new Set());
-          reqPreds.get(a.id)!.add(p.actionId);
-        }
-      }
-    }
-    for (const p of priorities) {
-      if (actionMap.has(p.higher) && actionMap.has(p.lower)) {
-        if (!prioPreds.has(p.lower)) prioPreds.set(p.lower, new Set());
-        prioPreds.get(p.lower)!.add(p.higher);
-      }
-    }
-    // Include tag-expanded priorities in annotations
-    const { extraPrios } = expandTagRelations(actions, priorities);
-    for (const p of extraPrios) {
-      if (actionMap.has(p.higher) && actionMap.has(p.lower)) {
-        if (!prioPreds.has(p.lower)) prioPreds.set(p.lower, new Set());
-        prioPreds.get(p.lower)!.add(p.higher);
-      }
-    }
-
     const sp = spDecompose(graph);
+    const actionMap = new Map(visible.map((a) => [a.id, a]));
     const output = renderSP(sp, (id) => {
       const a = actionMap.get(id);
-      if (!a) return id;
-      const mark =
-        a.state === "done"
-          ? "✓"
-          : a.state === "active"
-            ? "▶"
-            : a.state === "skipped"
-              ? "–"
-              : " ";
-      const reqs = reqPreds.get(id);
-      const prios = prioPreds.get(id);
-      const parts: string[] = [];
-      if (reqs) parts.push(...Array.from(reqs).map((r) => `req:${r}`));
-      if (prios) parts.push(...Array.from(prios).map((p) => `prio:${p}`));
-      const suffix = parts.length > 0 ? `  ← ${parts.join(", ")}` : "";
-      return `[${mark}] ${a.title}  (${a.id})${suffix}`;
+      return a ? formatActionLabel(a, annotations) : id;
     });
     console.log(output);
   });
