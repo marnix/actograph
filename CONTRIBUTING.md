@@ -85,6 +85,7 @@ program
 ## Testing
 
 - Use Vitest for all tests
+- All new or changed code must be covered by a unit test
 - Tests use temporary directories for database operations
 - Always clean up resources in `afterEach` hooks
 - Concurrent test uses child processes for real parallelism, retries until

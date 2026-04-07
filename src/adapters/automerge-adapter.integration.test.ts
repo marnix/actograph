@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, rmSync } from "fs";
+import { mkdtempSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
+import * as Automerge from "@automerge/automerge";
 import { AutomergeAdapter } from "./automerge-adapter.js";
 
 describe("AutomergeAdapter Integration", () => {
@@ -20,8 +21,8 @@ describe("AutomergeAdapter Integration", () => {
   it("should persist and reload actions", () => {
     const adapter = new AutomergeAdapter(dbPath);
     adapter.save([
-      { id: "1", title: "First", completed: false, prerequisites: [] },
-      { id: "2", title: "Second", completed: true, prerequisites: [] },
+      { id: "1", title: "First", state: "open", prerequisites: [] },
+      { id: "2", title: "Second", state: "done", prerequisites: [] },
     ]);
     adapter.close();
 
@@ -31,7 +32,7 @@ describe("AutomergeAdapter Integration", () => {
 
     expect(loaded).toHaveLength(2);
     expect(loaded[0]!.title).toBe("First");
-    expect(loaded[1]!.completed).toBe(true);
+    expect(loaded[1]!.state).toBe("done");
   });
 
   it("should start empty when no file exists", () => {
@@ -44,15 +45,42 @@ describe("AutomergeAdapter Integration", () => {
     const adapter = new AutomergeAdapter(dbPath);
 
     adapter.save([
-      { id: "1", title: "First", completed: false, prerequisites: [] },
+      { id: "1", title: "First", state: "open", prerequisites: [] },
     ]);
     adapter.save([
-      { id: "1", title: "First", completed: false, prerequisites: [] },
-      { id: "2", title: "Second", completed: false, prerequisites: [] },
+      { id: "1", title: "First", state: "open", prerequisites: [] },
+      { id: "2", title: "Second", state: "open", prerequisites: [] },
     ]);
 
     const loaded = adapter.load();
     expect(loaded).toHaveLength(2);
     adapter.close();
+  });
+
+  it("should migrate old 'completed' boolean to 'state'", () => {
+    // Write a doc with the old schema (completed: boolean)
+    type OldSchema = {
+      actions: Record<
+        string,
+        { title: string; completed: boolean; prerequisites: never[] }
+      >;
+    };
+    const doc = Automerge.from<OldSchema>({
+      actions: {
+        a1: { title: "Open task", completed: false, prerequisites: [] },
+        a2: { title: "Done task", completed: true, prerequisites: [] },
+      },
+    });
+    writeFileSync(dbPath, Automerge.save(doc));
+
+    // Read with current adapter — should migrate to state
+    const adapter = new AutomergeAdapter(dbPath);
+    const loaded = adapter.load();
+    adapter.close();
+
+    const open = loaded.find((a) => a.id === "a1");
+    const done = loaded.find((a) => a.id === "a2");
+    expect(open?.state).toBe("open");
+    expect(done?.state).toBe("done");
   });
 });

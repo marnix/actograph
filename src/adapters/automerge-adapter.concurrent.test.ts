@@ -58,9 +58,7 @@ describe("Concurrent CLI invocations (child processes)", () => {
       for (const { id } of results) {
         const action = actions.find((a) => a.id === id);
         expect(action, `action ${id} should exist`).toBeDefined();
-        expect(action!.completed, `action ${id} should be completed`).toBe(
-          true,
-        );
+        expect(action!.state, `action ${id} should be done`).toBe("done");
       }
 
       // Check if real contention occurred

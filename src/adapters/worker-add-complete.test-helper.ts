@@ -10,13 +10,13 @@ const adapter = new AutomergeAdapter(dbPath!);
 
 adapter.transact((actions) => [
   ...actions,
-  { id, title: `task-${index}`, completed: false, prerequisites: [] },
+  { id, title: `task-${index}`, state: "open", prerequisites: [] },
 ]);
 
 adapter.transact((actions) => {
   const action = actions.find((a) => a.id === id);
   if (!action) throw new Error(`Action ${id} not found after add`);
-  action.completed = true;
+  action.state = "done";
   return actions;
 });
 

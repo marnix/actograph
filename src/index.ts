@@ -58,7 +58,7 @@ program
     actions.push({
       id: generateActionId(),
       title,
-      completed: false,
+      state: "open",
       prerequisites: [],
     });
     adapter.save(actions);
@@ -84,24 +84,31 @@ program
     const output = renderSP(sp, (id) => {
       const a = actionMap.get(id);
       if (!a) return id;
-      const mark = a.completed ? "✓" : " ";
+      const mark =
+        a.state === "done"
+          ? "✓"
+          : a.state === "active"
+            ? "▶"
+            : a.state === "skipped"
+              ? "–"
+              : " ";
       return `[${mark}] ${a.title}  (${a.id})`;
     });
     console.log(output);
   });
 
 program
-  .command("complete")
-  .description("Mark an action as completed")
+  .command("done")
+  .description("Mark an action as done")
   .argument("<id>", "Action ID (or prefix)")
   .action((idPrefix: string) => {
     const adapter = new AutomergeAdapter(dbPath());
     const actions = adapter.load();
     const action = findAction(actions, idPrefix);
-    action.completed = true;
+    action.state = "done";
     adapter.save(actions);
     adapter.close();
-    console.log(`Completed: "${action.title}"`);
+    console.log(`Done: "${action.title}"`);
   });
 
 program
