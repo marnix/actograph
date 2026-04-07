@@ -73,23 +73,7 @@ function findAction<T extends { id: string; title: string }>(
   return match;
 }
 
-program
-  .command("do")
-  .description("Add a new action")
-  .argument("<title>", "Action title")
-  .action((title: string) => {
-    const adapter = new AutomergeAdapter(dbPath());
-    const actions = adapter.load();
-    actions.push({
-      id: generateActionId(),
-      title,
-      state: "open",
-      prerequisites: [],
-    });
-    adapter.save(actions);
-    adapter.close();
-    console.log(`Added: "${title}" (${actions.length} actions total)`);
-  });
+// --- Work ---
 
 program
   .command("list")
@@ -203,6 +187,26 @@ program
     console.log(output);
   });
 
+program
+  .command("do")
+  .description("Add a new action")
+  .argument("<title>", "Action title")
+  .action((title: string) => {
+    const adapter = new AutomergeAdapter(dbPath());
+    const actions = adapter.load();
+    actions.push({
+      id: generateActionId(),
+      title,
+      state: "open",
+      prerequisites: [],
+    });
+    adapter.save(actions);
+    adapter.close();
+    console.log(`Added: "${title}" (${actions.length} actions total)`);
+  });
+
+// --- Lifecycle ---
+
 function stateCommand(
   name: string,
   description: string,
@@ -235,11 +239,13 @@ function stateCommand(
     });
 }
 
-stateCommand("done", "Mark an action as done", "done", "Done");
 stateCommand("go", "Start working on an action", "active", "Started");
 stateCommand("stop", "Pause an active action", "open", "Stopped");
+stateCommand("done", "Mark an action as done", "done", "Done");
 stateCommand("donot", "Skip an action", "skipped", "Skipped");
 stateCommand("redo", "Reopen a done or skipped action", "open", "Reopened");
+
+// --- Ordering ---
 
 program
   .command("req")
