@@ -29,7 +29,6 @@ import type { StoragePort } from "../ports/storage-port.js";
 type PrerequisiteRecord = { actionId: string; createdAt: number };
 type ActionRecord = {
   title: string;
-  description?: string;
   state: string;
   prerequisites: PrerequisiteRecord[];
 };

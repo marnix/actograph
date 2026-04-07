@@ -129,7 +129,6 @@ program
       return;
     }
     const actionMap = new Map(visible.map((a) => [a.id, a]));
-    const allMap = new Map(actions.map((a) => [a.id, a]));
     const graph = computeWorkOrder(
       visible,
       priorities,

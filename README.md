@@ -59,6 +59,7 @@ npm run dev
 - [Action Naming](design/action-naming.md) — CVCVCVC syllable IDs with profanity filtering
 - [CLI Commands](design/cli-commands.md) — Command vocabulary, tags, and listing options
 - [Dependencies](design/dependencies.md) — Prerequisites, priorities, and tag inheritance
+- [Technical Debt](design/technical-debt.md) — Known weaknesses and improvement opportunities
 
 ## Roadmap / Ideas
 
