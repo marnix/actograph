@@ -47,7 +47,7 @@ interface ActographDoc {
 
 Every dependency (both `req` and `prio`) records its creation time in milliseconds since epoch, using the local wall clock.
 
-When a cycle is detected (e.g., A→B→C→A), it can be resolved by ignoring the most recently created edge — the one that introduced the cycle. In case of exact timestamp ties, fall back to a deterministic tiebreaker (e.g., lexicographic comparison of the involved action IDs).
+Cycle resolution is built into the work order computation (`src/domain/work-order.ts`): prerequisite edges are added first, then priority edges are added oldest-first, skipping any that would create a cycle. This means prerequisite ordering always wins over priority, and among conflicting priorities the older one takes precedence.
 
 ## Automerge Considerations
 
