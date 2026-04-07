@@ -70,8 +70,8 @@ Roughly in order, but not set in stone:
 4. ~~**Work order display** — Show actions as a series-parallel graph based on dependencies and priority~~ ✅ Done: `acto list` shows SP-structured output with `>>` and `||` markers
 5. ~~**Action lifecycle** — Replace the boolean `completed` with states (Open, Active, Done, Skipped) and transitions~~ ✅ Done: 4-state model with `go`, `done`, `donot`, `skip`, `redo` commands
 6. ~~**CLI/UX design** — Design a concise command vocabulary~~ ✅ Done: `do`, `done`, `go`, `donot`, `skip`, `redo`, `list`, `req`, `prio`
-7. **State transition validation** — Guard CLI state commands against invalid transitions (e.g., `go` only from Open, `donot` only from Active), matching the state machine in the design doc
-8. **Cycle prevention in CLI** — Call `wouldCreateCycle` from `req` and `prio` commands to reject cycle-introducing dependencies at input time
+7. ~~**State transition validation** — Guard CLI state commands against invalid transitions (e.g., `go` only from Open, `donot` only from Active), matching the state machine in the design doc~~ ✅ Done: `canTransition` guard in domain layer, enforced by all state commands
+8. ~~**Cycle prevention in CLI** — Call `wouldCreateCycle` from `req` and `prio` commands to reject cycle-introducing dependencies at input time~~ ✅ Done: both commands check against the full work order graph before persisting
 9. **Remove dependencies/priorities** — Add `unreq` and `unprio` commands to undo `req`/`prio` relations
 10. **Hide completed/skipped actions** — Filter Done and Skipped actions from `list` by default (as the design doc specifies), with a flag like `--all` to show everything
 11. **Tags** — Any action description can include `++sometagname` inline. An action whose description is _only_ a tag name (e.g., `++urgent`) becomes a tag action; its dependencies are inherited by all actions that mention that tag. This implements the "task groups" concept from the design doc (triaging by priority, project, version) without a separate grouping mechanism

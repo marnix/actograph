@@ -6,7 +6,7 @@
 // the most recently added priority edge when a cycle would form.
 
 import Graph from "graphology";
-import type { Prerequisite } from "./action.js";
+import type { Action, Prerequisite } from "./action.js";
 import type { Priority } from "./priority.js";
 
 interface ActionSummary {
@@ -14,7 +14,7 @@ interface ActionSummary {
   prerequisites: Prerequisite[];
 }
 
-function wouldCreateCycle(
+export function wouldCreateCycle(
   graph: Graph,
   source: string,
   target: string,
@@ -70,4 +70,39 @@ export function computeWorkOrder(
   }
 
   return graph;
+}
+
+export function addPrerequisite(
+  actions: Action[],
+  priorities: Priority[],
+  fromId: string,
+  toId: string,
+): void {
+  const target = actions.find((a) => a.id === toId);
+  if (!target) throw new Error(`Action not found: ${toId}`);
+  if (target.prerequisites.some((p) => p.actionId === fromId)) return;
+  const graph = computeWorkOrder(actions, priorities);
+  if (wouldCreateCycle(graph, fromId, toId)) {
+    throw new Error(
+      `Cannot add prerequisite: ${fromId} → ${toId} would create a cycle`,
+    );
+  }
+  target.prerequisites.push({ actionId: fromId, createdAt: Date.now() });
+}
+
+export function addPriority(
+  actions: Action[],
+  priorities: Priority[],
+  higherId: string,
+  lowerId: string,
+): void {
+  if (priorities.some((p) => p.higher === higherId && p.lower === lowerId))
+    return;
+  const graph = computeWorkOrder(actions, priorities);
+  if (wouldCreateCycle(graph, higherId, lowerId)) {
+    throw new Error(
+      `Cannot add priority: ${higherId} → ${lowerId} would create a cycle`,
+    );
+  }
+  priorities.push({ higher: higherId, lower: lowerId, createdAt: Date.now() });
 }
