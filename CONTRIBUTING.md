@@ -7,6 +7,9 @@ actograph/
 ├── src/
 │   ├── index.ts          # CLI entry point with Commander setup
 │   ├── storage.ts        # Database path configuration
+│   ├── cli/
+│   │   ├── find-action.ts    # Action lookup by ID prefix or tag title
+│   │   └── list-format.ts    # Annotation building and label formatting for list
 │   ├── domain/
 │   │   └── action.ts     # Action domain entity
 │   ├── ports/

@@ -18,18 +18,12 @@ Known weaknesses, roughly ordered by risk of bugs slipping through.
 
 6. **Domain rules split between layers** — The tag-action state guard is in the domain (good), but other validations are missing or CLI-only. E.g., nothing prevents creating duplicate tag actions (`acto do '++urgent'` twice), which causes ambiguous lookups.
 
-7. **Duplicated annotation-building logic** — The `list` command builds `reqPreds`/`prioPreds` maps in two near-identical blocks (default view and tags view). Adding a new annotation type means updating both.
-
-8. **`findAction` calls `process.exit`** — Makes it untestable in-process. Error paths in command logic can't be unit-tested without restructuring.
-
 ## Maintainability
 
-9. **`index.ts` is a monolith** — All CLI commands, adapter wiring, annotation-building, and rendering live in one file. Extracting command handlers would improve navigability.
-
-10. **No "show single action" command** — No way to inspect one action's full state, prerequisites, and priority relations without reading `list` output and mentally correlating IDs.
+7. **No "show single action" command** — No way to inspect one action's full state, prerequisites, and priority relations without reading `list` output and mentally correlating IDs.
 
 ## Scalability
 
-11. **O(n×p) in `expandTagRelations`** — Uses `actions.find()` inside a loop over priorities. Fine at current scale, will degrade with hundreds of actions and priorities.
+8. **O(n×p) in `expandTagRelations`** — Uses `actions.find()` inside a loop over priorities. Fine at current scale, will degrade with hundreds of actions and priorities.
 
-12. **Quadratic SP decomposition** — `spDecompose` has `MAX_ITER = (n+2)² + 100` with inner loops scanning all nodes/edges. Unlikely to matter at current scale but won't scale to large graphs.
+9. **Quadratic SP decomposition** — `spDecompose` has `MAX_ITER = (n+2)² + 100` with inner loops scanning all nodes/edges. Unlikely to matter at current scale but won't scale to large graphs.
