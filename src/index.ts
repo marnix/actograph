@@ -49,8 +49,8 @@ function findAction<T extends { id: string }>(actions: T[], prefix: string): T {
 }
 
 program
-  .command("add")
-  .description("Create a new action")
+  .command("do")
+  .description("Add a new action")
   .argument("<title>", "Action title")
   .action((title: string) => {
     const adapter = new AutomergeAdapter(dbPath());
