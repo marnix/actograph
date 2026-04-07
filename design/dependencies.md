@@ -19,7 +19,7 @@ interface Prerequisite {
 interface Action {
   id: string;
   title: string;
-  completed: boolean;
+  state: ActionState; // "open" | "active" | "done" | "skipped"
   prerequisites: Prerequisite[];
 }
 ```
@@ -54,6 +54,17 @@ Note: transitivity does not compose across relation types. If A has priority ove
 ## Work Order Display
 
 The work order graph is decomposed into a series-parallel (SP) tree (`src/domain/sp-decompose.ts`) using edge contraction (Valdes-Tarjan-Lawler style). Non-SP graphs fall back to topological layering. The SP tree is rendered as ASCII with `>>` (sequential) and `||` (parallel) markers (`src/domain/render-sp.ts`).
+
+## Tag Inheritance
+
+Tags (`++tagname` in action titles) introduce virtual edges into the work order:
+
+- **Prerequisite inheritance**: if a tag action (title is only `++tagname`) has prerequisites, those are inherited by all actions whose title mentions that tag.
+- **Priority inheritance**: if tag action A has priority over tag action B, every member of A's tag gets priority over every member of B's tag.
+
+Tag expansion is computed dynamically by `expandTagRelations()` in `src/domain/work-order.ts` — no stored expansion. This means editing an action's title to add or remove `++tag` tokens immediately changes its position in the work order.
+
+Tag actions themselves are not real work items: they cannot change state and are excluded from the default `list` output.
 
 ## Automerge Considerations
 

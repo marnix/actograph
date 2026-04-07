@@ -30,7 +30,12 @@ Alternatives considered for the priority command:
 
 ### Current Choice
 
-`req` and `prio`, as standalone commands — not as abbreviations or prefixes of longer command names. This avoids the `pri`/`pre` visual similarity problem and keeps things simple.
+`req` and `prio`, as standalone commands — not as abbreviations or prefixes of longer command names. This avoids the `pri`/`pre` visual similarity problem and keeps things simple. Their inverses are `unreq` and `unprio`.
+
+### Validation
+
+- **State transitions**: CLI commands reject invalid transitions (e.g., `go` on a Done action). Valid transitions are defined in the domain layer (`canTransition`).
+- **Cycle prevention**: `req` and `prio` reject edges that would create a cycle in the work order graph.
 
 ## Action Lifecycle Commands
 
@@ -38,11 +43,47 @@ Commands for managing action state:
 
 - `acto do <title>` — Create a new action (state: Open)
 - `acto go <id>` — Start working on an action (Open → Active)
-- `acto done <id>` — Mark an action as done (→ Done)
-- `acto donot <id>` — Pause an active action (Active → Open)
-- `acto skip <id>` — Skip an action (→ Skipped)
+- `acto stop <id>` — Pause an active action (Active → Open)
+- `acto done <id>` — Mark an action as done (Open/Active → Done)
+- `acto donot <id>` — Skip an action (Open/Active → Skipped)
 - `acto redo <id>` — Reopen a done or skipped action (→ Open)
+
+## Listing Commands
+
 - `acto list` — Show open/active actions in SP work order
 - `acto list -a` — Show all actions including done and skipped
+- `acto list -t` / `acto list --tags` — Show only tag actions in SP work order
 
 State indicators in `list` output: `[ ]` Open, `[▶]` Active, `[✓]` Done, `[–]` Skipped.
+
+Dependency annotations appear as suffixes: `← req:takapup, prio:zebepod`. Tag-inherited priority relations also appear as `prio:` annotations.
+
+When filtering (default, without `-a`), transitive ordering through hidden (done/skipped) actions is preserved. Tag actions are always excluded from `list` and `list -a`; use `list --tags` to see them.
+
+## Tags
+
+Action titles can include `++tagname` tokens inline (e.g., `"Fix login ++urgent"`). An action whose title is _only_ a tag (e.g., `"++urgent"`) is a **tag action**.
+
+Tag actions:
+
+- Cannot be started, completed, or skipped (state commands are blocked)
+- Are hidden from `list` and `list -a`; shown only via `list --tags`
+- Can participate in `req` and `prio` relationships
+- Can be referenced by their tag title (e.g., `acto prio '++urgent' '++backlog'`)
+
+### Tag Inheritance
+
+- If a tag action has prerequisites, every action mentioning that tag inherits those prerequisites
+- If tag action A has priority over tag action B, every action tagged with A's tag gets priority over every action tagged with B's tag
+- Inheritance is not transitive across tags (tag A's relations don't propagate through tag B)
+- Tag inheritance is computed dynamically from titles at work-order time — no stored expansion
+
+### Action ID Lookup
+
+All commands that accept action IDs also accept `++tagname` to look up a tag action by its title. This allows natural usage like:
+
+```
+acto do '++urgent'
+acto do '++backlog'
+acto prio '++urgent' '++backlog'
+```

@@ -4,8 +4,10 @@ import { Command } from "commander";
 import { generateActionId } from "./domain/action-id.js";
 import type { ActionState } from "./domain/action.js";
 import { transitionAction } from "./domain/action.js";
+import { isTagTitle } from "./domain/tags.js";
 import {
   computeWorkOrder,
+  expandTagRelations,
   addPrerequisite,
   addPriority,
   removePrerequisite,
@@ -39,7 +41,22 @@ function dbPath(): string {
   return join(resolveDataDir(), "actograph.automerge");
 }
 
-function findAction<T extends { id: string }>(actions: T[], prefix: string): T {
+function findAction<T extends { id: string; title: string }>(
+  actions: T[],
+  prefix: string,
+): T {
+  // Try matching by tag title first (e.g. "++urgent")
+  if (prefix.startsWith("++")) {
+    const tagMatches = actions.filter((a) => a.title === prefix);
+    if (tagMatches.length === 1) return tagMatches[0] as T;
+    if (tagMatches.length > 1) {
+      console.error(
+        `Ambiguous tag "${prefix}": matches ${tagMatches.map((a) => a.id).join(", ")}`,
+      );
+      process.exit(1);
+    }
+    // fall through to ID prefix matching
+  }
   const matches = actions.filter((a) => a.id.startsWith(prefix));
   if (matches.length === 0) {
     console.error(`No action found matching "${prefix}"`);
@@ -56,36 +73,57 @@ function findAction<T extends { id: string }>(actions: T[], prefix: string): T {
   return match;
 }
 
-program
-  .command("do")
-  .description("Add a new action")
-  .argument("<title>", "Action title")
-  .action((title: string) => {
-    const adapter = new AutomergeAdapter(dbPath());
-    const actions = adapter.load();
-    actions.push({
-      id: generateActionId(),
-      title,
-      state: "open",
-      prerequisites: [],
-    });
-    adapter.save(actions);
-    adapter.close();
-    console.log(`Added: "${title}" (${actions.length} actions total)`);
-  });
+// --- Work ---
 
 program
   .command("list")
-  .description("List actions (open/active only; use -a for all)")
+  .description(
+    "List actions (open/active only; use -a for all, --tags for tag actions)",
+  )
   .option("-a, --all", "Show all actions including done and skipped")
-  .action((opts: { all?: boolean }) => {
+  .option("-t, --tags", "Show only tag actions")
+  .action((opts: { all?: boolean; tags?: boolean }) => {
     const adapter = new AutomergeAdapter(dbPath());
     const actions = adapter.load();
     const priorities = adapter.loadPriorities();
     adapter.close();
+
+    if (opts.tags) {
+      const tagActions = actions.filter((a) => isTagTitle(a.title));
+      if (tagActions.length === 0) {
+        console.log("No tag actions.");
+        return;
+      }
+      const tagMap = new Map(tagActions.map((a) => [a.id, a]));
+      const graph = computeWorkOrder(tagActions, priorities);
+      const prioPreds = new Map<string, Set<string>>();
+      for (const p of priorities) {
+        if (tagMap.has(p.higher) && tagMap.has(p.lower)) {
+          if (!prioPreds.has(p.lower)) prioPreds.set(p.lower, new Set());
+          prioPreds.get(p.lower)!.add(p.higher);
+        }
+      }
+      const sp = spDecompose(graph);
+      const output = renderSP(sp, (id) => {
+        const a = tagMap.get(id);
+        if (!a) return id;
+        const prios = prioPreds.get(id);
+        const parts: string[] = [];
+        if (prios) parts.push(...Array.from(prios).map((p) => `prio:${p}`));
+        const suffix = parts.length > 0 ? `  ← ${parts.join(", ")}` : "";
+        return `${a.title}  (${a.id})${suffix}`;
+      });
+      console.log(output);
+      return;
+    }
+
     const visible = opts.all
-      ? actions
-      : actions.filter((a) => a.state === "open" || a.state === "active");
+      ? actions.filter((a) => !isTagTitle(a.title))
+      : actions.filter(
+          (a) =>
+            !isTagTitle(a.title) &&
+            (a.state === "open" || a.state === "active"),
+        );
     if (visible.length === 0) {
       console.log(opts.all ? "No actions." : "No open/active actions.");
       return;
@@ -117,6 +155,14 @@ program
         prioPreds.get(p.lower)!.add(p.higher);
       }
     }
+    // Include tag-expanded priorities in annotations
+    const { extraPrios } = expandTagRelations(actions, priorities);
+    for (const p of extraPrios) {
+      if (actionMap.has(p.higher) && actionMap.has(p.lower)) {
+        if (!prioPreds.has(p.lower)) prioPreds.set(p.lower, new Set());
+        prioPreds.get(p.lower)!.add(p.higher);
+      }
+    }
 
     const sp = spDecompose(graph);
     const output = renderSP(sp, (id) => {
@@ -141,6 +187,26 @@ program
     console.log(output);
   });
 
+program
+  .command("do")
+  .description("Add a new action")
+  .argument("<title>", "Action title")
+  .action((title: string) => {
+    const adapter = new AutomergeAdapter(dbPath());
+    const actions = adapter.load();
+    actions.push({
+      id: generateActionId(),
+      title,
+      state: "open",
+      prerequisites: [],
+    });
+    adapter.save(actions);
+    adapter.close();
+    console.log(`Added: "${title}" (${actions.length} actions total)`);
+  });
+
+// --- Lifecycle ---
+
 function stateCommand(
   name: string,
   description: string,
@@ -155,6 +221,11 @@ function stateCommand(
       const adapter = new AutomergeAdapter(dbPath());
       const actions = adapter.load();
       const action = findAction(actions, idPrefix);
+      if (isTagTitle(action.title)) {
+        adapter.close();
+        console.error(`Cannot change state of tag action "${action.title}"`);
+        process.exit(1);
+      }
       try {
         transitionAction(action, newState);
       } catch (e) {
@@ -168,11 +239,13 @@ function stateCommand(
     });
 }
 
-stateCommand("done", "Mark an action as done", "done", "Done");
 stateCommand("go", "Start working on an action", "active", "Started");
-stateCommand("donot", "Pause an active action", "open", "Paused");
-stateCommand("skip", "Skip an action", "skipped", "Skipped");
+stateCommand("stop", "Pause an active action", "open", "Stopped");
+stateCommand("done", "Mark an action as done", "done", "Done");
+stateCommand("donot", "Skip an action", "skipped", "Skipped");
 stateCommand("redo", "Reopen a done or skipped action", "open", "Reopened");
+
+// --- Ordering ---
 
 program
   .command("req")

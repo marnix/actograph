@@ -11,6 +11,7 @@ import type { Priority } from "./priority.js";
 function action(id: string, ...prereqIds: string[]) {
   return {
     id,
+    title: id,
     prerequisites: prereqIds.map((actionId) => ({ actionId, createdAt: 0 })),
   };
 }
@@ -251,5 +252,78 @@ describe("removePriority", () => {
 
   it("throws when priority does not exist", () => {
     expect(() => removePriority([], "a", "b")).toThrow("No priority");
+  });
+});
+
+describe("tag inheritance via expandTagRelations", () => {
+  function tagAction(tag: string, ...prereqIds: string[]) {
+    return fullAction(`tag-${tag}`, ...prereqIds);
+  }
+
+  // Override title for tag actions
+  function makeTagAction(id: string, tag: string, ...prereqIds: string[]) {
+    const a = fullAction(id, ...prereqIds);
+    a.title = `++${tag}`;
+    return a;
+  }
+
+  function makeTaggedAction(id: string, title: string, ...prereqIds: string[]) {
+    const a = fullAction(id, ...prereqIds);
+    a.title = title;
+    return a;
+  }
+
+  it("tagged action inherits prerequisites from tag action", () => {
+    const prereqAction = fullAction("prereq");
+    const tagAct = makeTagAction("t1", "urgent", "prereq");
+    const tagged = makeTaggedAction("a1", "Fix bug ++urgent");
+    const actions = [prereqAction, tagAct, tagged];
+    const g = computeWorkOrder(actions, []);
+    // prereq->t1 (direct), prereq->a1 (inherited from tag)
+    expect(edges(g)).toContain("prereq->a1");
+  });
+
+  it("prio between tag actions expands to member actions", () => {
+    const tagUrgent = makeTagAction("t1", "urgent");
+    const tagBacklog = makeTagAction("t2", "backlog");
+    const urgentAction = makeTaggedAction("a1", "Fix bug ++urgent");
+    const backlogAction = makeTaggedAction("a2", "Refactor ++backlog");
+    const actions = [tagUrgent, tagBacklog, urgentAction, backlogAction];
+    const prios: Priority[] = [{ higher: "t1", lower: "t2", createdAt: 0 }];
+    const g = computeWorkOrder(actions, prios);
+    // a1 should have priority over a2 (inherited from tag prio)
+    expect(edges(g)).toContain("a1->a2");
+  });
+
+  it("tag prio does not create self-edges", () => {
+    const tagUrgent = makeTagAction("t1", "urgent");
+    const a1 = makeTaggedAction("a1", "Fix ++urgent");
+    const actions = [tagUrgent, a1];
+    // prio from t1 to t1 would be weird but shouldn't crash
+    const prios: Priority[] = [{ higher: "t1", lower: "t1", createdAt: 0 }];
+    const g = computeWorkOrder(actions, prios);
+    expect(g.size).toBe(0); // no edges, since only one member and no self-loops
+  });
+
+  it("action with multiple tags inherits from all", () => {
+    const prereq1 = fullAction("p1");
+    const prereq2 = fullAction("p2");
+    const tag1 = makeTagAction("t1", "urgent", "p1");
+    const tag2 = makeTagAction("t2", "v2", "p2");
+    const multi = makeTaggedAction("a1", "Fix ++urgent ++v2");
+    const actions = [prereq1, prereq2, tag1, tag2, multi];
+    const g = computeWorkOrder(actions, []);
+    expect(edges(g)).toContain("p1->a1");
+    expect(edges(g)).toContain("p2->a1");
+  });
+
+  it("non-tag actions are unaffected", () => {
+    const tagAct = makeTagAction("t1", "urgent");
+    const plain = fullAction("a1");
+    const actions = [tagAct, plain];
+    const prios: Priority[] = [{ higher: "t1", lower: "a1", createdAt: 0 }];
+    const g = computeWorkOrder(actions, prios);
+    // Direct prio still works, but no tag expansion since a1 doesn't mention ++urgent
+    expect(edges(g)).toContain("t1->a1");
   });
 });
