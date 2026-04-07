@@ -1,5 +1,7 @@
 // Action domain entity - plain TypeScript, no framework dependency
 
+import { isTagTitle } from "./tags.js";
+
 export interface Prerequisite {
   actionId: string;
   createdAt: number; // milliseconds since epoch
@@ -19,6 +21,9 @@ export function canTransition(from: ActionState, to: ActionState): boolean {
 }
 
 export function transitionAction(action: Action, to: ActionState): void {
+  if (isTagTitle(action.title)) {
+    throw new Error(`Cannot change state of tag action "${action.title}"`);
+  }
   if (!canTransition(action.state, to)) {
     throw new Error(`Cannot transition from "${action.state}" to "${to}"`);
   }

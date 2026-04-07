@@ -221,11 +221,6 @@ function stateCommand(
       const adapter = new AutomergeAdapter(dbPath());
       const actions = adapter.load();
       const action = findAction(actions, idPrefix);
-      if (isTagTitle(action.title)) {
-        adapter.close();
-        console.error(`Cannot change state of tag action "${action.title}"`);
-        process.exit(1);
-      }
       try {
         transitionAction(action, newState);
       } catch (e) {

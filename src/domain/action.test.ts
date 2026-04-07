@@ -50,8 +50,8 @@ describe("canTransition", () => {
 });
 
 describe("transitionAction", () => {
-  function makeAction(state: ActionState): Action {
-    return { id: "t", title: "test", state, prerequisites: [] };
+  function makeAction(state: ActionState, title = "test"): Action {
+    return { id: "t", title, state, prerequisites: [] };
   }
 
   it("mutates state on valid transition", () => {
@@ -76,4 +76,17 @@ describe("transitionAction", () => {
     }
     expect(a.state).toBe("done");
   });
+
+  const allTargetStates: ActionState[] = ["open", "active", "done", "skipped"];
+
+  it.each(allTargetStates)(
+    "throws on tag action for any target state (%s)",
+    (target) => {
+      const a = makeAction("open", "++urgent");
+      expect(() => transitionAction(a, target)).toThrow(
+        'Cannot change state of tag action "++urgent"',
+      );
+      expect(a.state).toBe("open");
+    },
+  );
 });

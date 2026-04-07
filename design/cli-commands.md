@@ -66,7 +66,7 @@ Action titles can include `++tagname` tokens inline (e.g., `"Fix login ++urgent"
 
 Tag actions:
 
-- Cannot be started, completed, or skipped (state commands are blocked)
+- Cannot be started, completed, skipped, or edited (state and edit commands are blocked)
 - Are hidden from `list` and `list -a`; shown only via `list --tags`
 - Can participate in `req` and `prio` relationships
 - Can be referenced by their tag title (e.g., `acto prio '++urgent' '++backlog'`)

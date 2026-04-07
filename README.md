@@ -16,7 +16,7 @@ Actograph is focused on managing **actions** (not generic tasks) with these core
 - **Identity**: Every action has a unique human-friendly identifier — a pronounceable 7-character consonant-vowel string (e.g., `takapup`, `zebepod`), stable across edits, with prefix matching for quick reference. See [design/action-naming.md](design/action-naming.md)
 - **Dependencies**: Actions can depend on other actions ("A is necessary for B"), providing a computed work order. The "necessary for" dependency also comes in an _owning_ variant, where the parent action owns and is defined by its sub-actions
 - **Priority**: A separate "more important than" relation combines with dependencies to determine overall work order
-- **Task groups**: Actions can be grouped for triaging (priority, project, version), with group-level dependencies inherited by members
+- **Task groups**: Actions can be grouped for triaging (priority, project, version), with group-level dependencies inherited by members. Tag actions (whose title is only `++tagname`) are immutable: they cannot change state or be edited
 - **Local-first**: Data stored locally using Automerge CRDTs, with multi-device sync planned
 
 See [design/task-list-application.md](design/task-list-application.md) for the original design exploration document with more detailed concepts and ideas.
