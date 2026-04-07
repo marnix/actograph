@@ -6,14 +6,30 @@ import { computeWorkOrder } from "./domain/work-order.js";
 import { spDecompose } from "./domain/sp-decompose.js";
 import { renderSP } from "./domain/render-sp.js";
 import { AutomergeAdapter } from "./adapters/automerge-adapter.js";
-import { getDbPath } from "./storage.js";
+import { getDataDir } from "./storage.js";
+import { join } from "path";
+import { mkdirSync } from "fs";
 
 const program = new Command();
 
 program
   .name("actograph")
   .description("Local-first action management CLI")
-  .version("0.1.0");
+  .version("0.1.0")
+  .option("--data-dir <path>", "Override data directory");
+
+function resolveDataDir(): string {
+  const override = (program.opts() as { dataDir?: string }).dataDir;
+  if (override) {
+    mkdirSync(override, { recursive: true });
+    return override;
+  }
+  return getDataDir();
+}
+
+function dbPath(): string {
+  return join(resolveDataDir(), "actograph.automerge");
+}
 
 function findAction<T extends { id: string }>(actions: T[], prefix: string): T {
   const matches = actions.filter((a) => a.id.startsWith(prefix));
@@ -37,7 +53,7 @@ program
   .description("Create a new action")
   .argument("<title>", "Action title")
   .action((title: string) => {
-    const adapter = new AutomergeAdapter(getDbPath());
+    const adapter = new AutomergeAdapter(dbPath());
     const actions = adapter.load();
     actions.push({
       id: generateActionId(),
@@ -54,7 +70,7 @@ program
   .command("list")
   .description("List all actions")
   .action(() => {
-    const adapter = new AutomergeAdapter(getDbPath());
+    const adapter = new AutomergeAdapter(dbPath());
     const actions = adapter.load();
     const priorities = adapter.loadPriorities();
     adapter.close();
@@ -79,7 +95,7 @@ program
   .description("Mark an action as completed")
   .argument("<id>", "Action ID (or prefix)")
   .action((idPrefix: string) => {
-    const adapter = new AutomergeAdapter(getDbPath());
+    const adapter = new AutomergeAdapter(dbPath());
     const actions = adapter.load();
     const action = findAction(actions, idPrefix);
     action.completed = true;
@@ -99,7 +115,7 @@ program
       console.error("Need at least two action IDs");
       process.exit(1);
     }
-    const adapter = new AutomergeAdapter(getDbPath());
+    const adapter = new AutomergeAdapter(dbPath());
     const actions = adapter.load();
     const resolved = ids.map((prefix) => findAction(actions, prefix));
     let added = 0;
@@ -129,7 +145,7 @@ program
       console.error("Need at least two action IDs");
       process.exit(1);
     }
-    const adapter = new AutomergeAdapter(getDbPath());
+    const adapter = new AutomergeAdapter(dbPath());
     const actions = adapter.load();
     const resolved = ids.map((prefix) => findAction(actions, prefix));
     const priorities = adapter.loadPriorities();
