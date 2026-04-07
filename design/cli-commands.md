@@ -30,7 +30,12 @@ Alternatives considered for the priority command:
 
 ### Current Choice
 
-`req` and `prio`, as standalone commands — not as abbreviations or prefixes of longer command names. This avoids the `pri`/`pre` visual similarity problem and keeps things simple.
+`req` and `prio`, as standalone commands — not as abbreviations or prefixes of longer command names. This avoids the `pri`/`pre` visual similarity problem and keeps things simple. Their inverses are `unreq` and `unprio`.
+
+### Validation
+
+- **State transitions**: CLI commands reject invalid transitions (e.g., `go` on a Done action). Valid transitions are defined in the domain layer (`canTransition`).
+- **Cycle prevention**: `req` and `prio` reject edges that would create a cycle in the work order graph.
 
 ## Action Lifecycle Commands
 
@@ -38,11 +43,15 @@ Commands for managing action state:
 
 - `acto do <title>` — Create a new action (state: Open)
 - `acto go <id>` — Start working on an action (Open → Active)
-- `acto done <id>` — Mark an action as done (→ Done)
+- `acto done <id>` — Mark an action as done (Open/Active → Done)
 - `acto donot <id>` — Pause an active action (Active → Open)
-- `acto skip <id>` — Skip an action (→ Skipped)
+- `acto skip <id>` — Skip an action (Open/Active → Skipped)
 - `acto redo <id>` — Reopen a done or skipped action (→ Open)
 - `acto list` — Show open/active actions in SP work order
 - `acto list -a` — Show all actions including done and skipped
 
 State indicators in `list` output: `[ ]` Open, `[▶]` Active, `[✓]` Done, `[–]` Skipped.
+
+Dependency annotations appear as suffixes: `← req:takapup, prio:zebepod`.
+
+When filtering (default, without `-a`), transitive ordering through hidden (done/skipped) actions is preserved.
