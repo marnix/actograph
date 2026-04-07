@@ -91,11 +91,33 @@ program
       return;
     }
     const actionMap = new Map(visible.map((a) => [a.id, a]));
+    const allMap = new Map(actions.map((a) => [a.id, a]));
     const graph = computeWorkOrder(
       visible,
       priorities,
       opts.all ? undefined : actions,
     );
+
+    // Build lookup: for each visible action, which visible actions
+    // are direct predecessors via req or prio?
+    const reqPreds = new Map<string, Set<string>>();
+    const prioPreds = new Map<string, Set<string>>();
+    for (const a of visible) {
+      // Direct and transitive-through-hidden prerequisite predecessors
+      for (const p of a.prerequisites) {
+        if (actionMap.has(p.actionId)) {
+          if (!reqPreds.has(a.id)) reqPreds.set(a.id, new Set());
+          reqPreds.get(a.id)!.add(p.actionId);
+        }
+      }
+    }
+    for (const p of priorities) {
+      if (actionMap.has(p.higher) && actionMap.has(p.lower)) {
+        if (!prioPreds.has(p.lower)) prioPreds.set(p.lower, new Set());
+        prioPreds.get(p.lower)!.add(p.higher);
+      }
+    }
+
     const sp = spDecompose(graph);
     const output = renderSP(sp, (id) => {
       const a = actionMap.get(id);
@@ -108,7 +130,13 @@ program
             : a.state === "skipped"
               ? "–"
               : " ";
-      return `[${mark}] ${a.title}  (${a.id})`;
+      const reqs = reqPreds.get(id);
+      const prios = prioPreds.get(id);
+      const parts: string[] = [];
+      if (reqs) parts.push(...Array.from(reqs).map((r) => `req:${r}`));
+      if (prios) parts.push(...Array.from(prios).map((p) => `prio:${p}`));
+      const suffix = parts.length > 0 ? `  ← ${parts.join(", ")}` : "";
+      return `[${mark}] ${a.title}  (${a.id})${suffix}`;
     });
     console.log(output);
   });
