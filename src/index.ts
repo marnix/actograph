@@ -93,13 +93,46 @@ program
 
 program
   .command("list")
-  .description("List actions (open/active only; use -a for all)")
+  .description(
+    "List actions (open/active only; use -a for all, --tags for tag actions)",
+  )
   .option("-a, --all", "Show all actions including done and skipped")
-  .action((opts: { all?: boolean }) => {
+  .option("-t, --tags", "Show only tag actions")
+  .action((opts: { all?: boolean; tags?: boolean }) => {
     const adapter = new AutomergeAdapter(dbPath());
     const actions = adapter.load();
     const priorities = adapter.loadPriorities();
     adapter.close();
+
+    if (opts.tags) {
+      const tagActions = actions.filter((a) => isTagTitle(a.title));
+      if (tagActions.length === 0) {
+        console.log("No tag actions.");
+        return;
+      }
+      const tagMap = new Map(tagActions.map((a) => [a.id, a]));
+      const graph = computeWorkOrder(tagActions, priorities);
+      const prioPreds = new Map<string, Set<string>>();
+      for (const p of priorities) {
+        if (tagMap.has(p.higher) && tagMap.has(p.lower)) {
+          if (!prioPreds.has(p.lower)) prioPreds.set(p.lower, new Set());
+          prioPreds.get(p.lower)!.add(p.higher);
+        }
+      }
+      const sp = spDecompose(graph);
+      const output = renderSP(sp, (id) => {
+        const a = tagMap.get(id);
+        if (!a) return id;
+        const prios = prioPreds.get(id);
+        const parts: string[] = [];
+        if (prios) parts.push(...Array.from(prios).map((p) => `prio:${p}`));
+        const suffix = parts.length > 0 ? `  ← ${parts.join(", ")}` : "";
+        return `${a.title}  (${a.id})${suffix}`;
+      });
+      console.log(output);
+      return;
+    }
+
     const visible = opts.all
       ? actions.filter((a) => !isTagTitle(a.title))
       : actions.filter(
