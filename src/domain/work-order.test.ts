@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { computeWorkOrder } from "./work-order.js";
+import {
+  computeWorkOrder,
+  addPrerequisite,
+  addPriority,
+} from "./work-order.js";
 import type { Priority } from "./priority.js";
 
 function action(id: string, ...prereqIds: string[]) {
@@ -103,5 +107,65 @@ describe("computeWorkOrder", () => {
       [],
     );
     expect(edges(g)).toEqual(["a->b", "a->c", "b->d", "c->d"]);
+  });
+});
+
+function fullAction(id: string, ...prereqIds: string[]) {
+  return {
+    id,
+    title: id,
+    state: "open" as const,
+    prerequisites: prereqIds.map((actionId) => ({ actionId, createdAt: 0 })),
+  };
+}
+
+describe("addPrerequisite", () => {
+  it("adds a prerequisite", () => {
+    const actions = [fullAction("a"), fullAction("b")];
+    addPrerequisite(actions, [], "a", "b");
+    const b = actions.find((a) => a.id === "b")!;
+    expect(b.prerequisites).toEqual(
+      expect.arrayContaining([expect.objectContaining({ actionId: "a" })]),
+    );
+  });
+
+  it("is idempotent", () => {
+    const actions = [fullAction("a"), fullAction("b", "a")];
+    addPrerequisite(actions, [], "a", "b");
+    const b = actions.find((a) => a.id === "b")!;
+    expect(b.prerequisites.filter((p) => p.actionId === "a")).toHaveLength(1);
+  });
+
+  it("throws on cycle", () => {
+    const actions = [fullAction("a"), fullAction("b", "a")];
+    expect(() => addPrerequisite(actions, [], "b", "a")).toThrow("cycle");
+  });
+
+  it("throws on unknown target", () => {
+    expect(() => addPrerequisite([fullAction("a")], [], "a", "z")).toThrow(
+      "Action not found",
+    );
+  });
+});
+
+describe("addPriority", () => {
+  it("adds a priority", () => {
+    const prios: Priority[] = [];
+    addPriority([fullAction("a"), fullAction("b")], prios, "a", "b");
+    expect(prios).toHaveLength(1);
+    expect(prios[0]).toEqual(
+      expect.objectContaining({ higher: "a", lower: "b" }),
+    );
+  });
+
+  it("is idempotent", () => {
+    const prios: Priority[] = [{ higher: "a", lower: "b", createdAt: 0 }];
+    addPriority([fullAction("a"), fullAction("b")], prios, "a", "b");
+    expect(prios).toHaveLength(1);
+  });
+
+  it("throws on cycle", () => {
+    const actions = [fullAction("a"), fullAction("b", "a")];
+    expect(() => addPriority(actions, [], "b", "a")).toThrow("cycle");
   });
 });
