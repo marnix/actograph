@@ -49,6 +49,12 @@ Every dependency (both `req` and `prio`) records its creation time in millisecon
 
 Cycle resolution is built into the work order computation (`src/domain/work-order.ts`): prerequisite edges are added first, then priority edges are added oldest-first, skipping any that would create a cycle. This means prerequisite ordering always wins over priority, and among conflicting priorities the older one takes precedence.
 
+Note: transitivity does not compose across relation types. If A has priority over B, and B is required by C, that does NOT imply A is before C in the work order. Each relation's transitivity is computed independently.
+
+## Work Order Display
+
+The work order graph is decomposed into a series-parallel (SP) tree (`src/domain/sp-decompose.ts`) using edge contraction (Valdes-Tarjan-Lawler style). Non-SP graphs fall back to topological layering. The SP tree is rendered as ASCII with `>>` (sequential) and `||` (parallel) markers (`src/domain/render-sp.ts`).
+
 ## Automerge Considerations
 
 - Prerequisites (list on each action): concurrent additions from different devices merge cleanly via Automerge's list CRDT.

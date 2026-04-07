@@ -5,9 +5,11 @@ export interface Prerequisite {
   createdAt: number; // milliseconds since epoch
 }
 
+export type ActionState = "open" | "active" | "done" | "skipped";
+
 export interface Action {
   id: string;
   title: string;
-  completed: boolean;
+  state: ActionState;
   prerequisites: Prerequisite[];
 }

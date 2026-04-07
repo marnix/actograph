@@ -2,6 +2,7 @@
 
 import { Command } from "commander";
 import { generateActionId } from "./domain/action-id.js";
+import type { ActionState } from "./domain/action.js";
 import { computeWorkOrder } from "./domain/work-order.js";
 import { spDecompose } from "./domain/sp-decompose.js";
 import { renderSP } from "./domain/render-sp.js";
@@ -49,8 +50,8 @@ function findAction<T extends { id: string }>(actions: T[], prefix: string): T {
 }
 
 program
-  .command("add")
-  .description("Create a new action")
+  .command("do")
+  .description("Add a new action")
   .argument("<title>", "Action title")
   .action((title: string) => {
     const adapter = new AutomergeAdapter(dbPath());
@@ -58,7 +59,7 @@ program
     actions.push({
       id: generateActionId(),
       title,
-      completed: false,
+      state: "open",
       prerequisites: [],
     });
     adapter.save(actions);
@@ -84,25 +85,45 @@ program
     const output = renderSP(sp, (id) => {
       const a = actionMap.get(id);
       if (!a) return id;
-      const mark = a.completed ? "✓" : " ";
+      const mark =
+        a.state === "done"
+          ? "✓"
+          : a.state === "active"
+            ? "▶"
+            : a.state === "skipped"
+              ? "–"
+              : " ";
       return `[${mark}] ${a.title}  (${a.id})`;
     });
     console.log(output);
   });
 
-program
-  .command("complete")
-  .description("Mark an action as completed")
-  .argument("<id>", "Action ID (or prefix)")
-  .action((idPrefix: string) => {
-    const adapter = new AutomergeAdapter(dbPath());
-    const actions = adapter.load();
-    const action = findAction(actions, idPrefix);
-    action.completed = true;
-    adapter.save(actions);
-    adapter.close();
-    console.log(`Completed: "${action.title}"`);
-  });
+function stateCommand(
+  name: string,
+  description: string,
+  newState: ActionState,
+  label: string,
+): void {
+  program
+    .command(name)
+    .description(description)
+    .argument("<id>", "Action ID (or prefix)")
+    .action((idPrefix: string) => {
+      const adapter = new AutomergeAdapter(dbPath());
+      const actions = adapter.load();
+      const action = findAction(actions, idPrefix);
+      action.state = newState;
+      adapter.save(actions);
+      adapter.close();
+      console.log(`${label}: "${action.title}"`);
+    });
+}
+
+stateCommand("done", "Mark an action as done", "done", "Done");
+stateCommand("go", "Start working on an action", "active", "Started");
+stateCommand("donot", "Pause an active action", "open", "Paused");
+stateCommand("skip", "Skip an action", "skipped", "Skipped");
+stateCommand("redo", "Reopen a done or skipped action", "open", "Reopened");
 
 program
   .command("req")

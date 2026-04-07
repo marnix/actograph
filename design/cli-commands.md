@@ -29,3 +29,17 @@ Alternatives considered for the priority command:
 ### Current Choice
 
 `req` and `prio`, as standalone commands — not as abbreviations or prefixes of longer command names. This avoids the `pri`/`pre` visual similarity problem and keeps things simple.
+
+## Action Lifecycle Commands
+
+Commands for managing action state:
+
+- `acto do <title>` — Create a new action (state: Open)
+- `acto go <id>` — Start working on an action (Open → Active)
+- `acto done <id>` — Mark an action as done (→ Done)
+- `acto donot <id>` — Pause an active action (Active → Open)
+- `acto skip <id>` — Skip an action (→ Skipped)
+- `acto redo <id>` — Reopen a done or skipped action (→ Open)
+- `acto list` — Show all actions in SP work order
+
+State indicators in `list` output: `[ ]` Open, `[▶]` Active, `[✓]` Done, `[–]` Skipped.

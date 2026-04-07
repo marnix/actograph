@@ -22,14 +22,14 @@ import {
   unlinkSync,
 } from "fs";
 import { randomUUID } from "crypto";
-import type { Action, Prerequisite } from "../domain/action.js";
+import type { Action, ActionState, Prerequisite } from "../domain/action.js";
 import type { Priority } from "../domain/priority.js";
 import type { StoragePort } from "../ports/storage-port.js";
 
 type PrerequisiteRecord = { actionId: string; createdAt: number };
 type ActionRecord = {
   title: string;
-  completed: boolean;
+  state: string;
   prerequisites: PrerequisiteRecord[];
 };
 type PriorityRecord = { higher: string; lower: string; createdAt: number };
@@ -90,15 +90,25 @@ function loadDoc(filePath: string): Automerge.Doc<DocSchema> {
 }
 
 function docToActions(doc: Automerge.Doc<DocSchema>): Action[] {
-  return Object.entries(doc.actions).map(([id, a]) => ({
-    id,
-    title: a.title,
-    completed: a.completed,
-    prerequisites: (a.prerequisites ?? []).map((p) => ({
-      actionId: p.actionId,
-      createdAt: p.createdAt,
-    })),
-  }));
+  return Object.entries(doc.actions).map(([id, a]) => {
+    // Migration: old docs may have 'completed' boolean instead of 'state'
+    const raw = a as Record<string, unknown>;
+    const state: ActionState =
+      typeof a.state === "string"
+        ? (a.state as ActionState)
+        : raw["completed"]
+          ? "done"
+          : "open";
+    return {
+      id,
+      title: a.title,
+      state,
+      prerequisites: (a.prerequisites ?? []).map((p) => ({
+        actionId: p.actionId,
+        createdAt: p.createdAt,
+      })),
+    };
+  });
 }
 
 function applyActions(
@@ -114,7 +124,7 @@ function applyActions(
       if (!d.actions[a.id]) {
         d.actions[a.id] = {
           title: a.title,
-          completed: a.completed,
+          state: a.state,
           prerequisites: (a.prerequisites ?? []).map((p) => ({
             actionId: p.actionId,
             createdAt: p.createdAt,
@@ -124,7 +134,7 @@ function applyActions(
         const existing = d.actions[a.id];
         if (existing) {
           existing.title = a.title;
-          existing.completed = a.completed;
+          existing.state = a.state;
           existing.prerequisites = (a.prerequisites ?? []).map((p) => ({
             actionId: p.actionId,
             createdAt: p.createdAt,
