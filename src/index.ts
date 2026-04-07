@@ -192,16 +192,17 @@ program
   .argument("<title>", "Action title")
   .action((title: string) => {
     const adapter = new AutomergeAdapter(dbPath());
-    const actions = adapter.load();
-    actions.push({
-      id: generateActionId(),
-      title,
-      state: "open",
-      prerequisites: [],
+    adapter.transact(({ actions, priorities }) => {
+      actions.push({
+        id: generateActionId(),
+        title,
+        state: "open",
+        prerequisites: [],
+      });
+      console.log(`Added: "${title}" (${actions.length} actions total)`);
+      return { actions, priorities };
     });
-    adapter.save(actions);
     adapter.close();
-    console.log(`Added: "${title}" (${actions.length} actions total)`);
   });
 
 // --- Lifecycle ---
@@ -218,18 +219,18 @@ function stateCommand(
     .argument("<id>", "Action ID (or prefix)")
     .action((idPrefix: string) => {
       const adapter = new AutomergeAdapter(dbPath());
-      const actions = adapter.load();
-      const action = findAction(actions, idPrefix);
-      try {
-        transitionAction(action, newState);
-      } catch (e) {
-        adapter.close();
-        console.error((e as Error).message);
-        process.exit(1);
-      }
-      adapter.save(actions);
+      adapter.transact(({ actions, priorities }) => {
+        const action = findAction(actions, idPrefix);
+        try {
+          transitionAction(action, newState);
+        } catch (e) {
+          console.error((e as Error).message);
+          process.exit(1);
+        }
+        console.log(`${label}: "${action.title}"`);
+        return { actions, priorities };
+      });
       adapter.close();
-      console.log(`${label}: "${action.title}"`);
     });
 }
 
@@ -253,22 +254,21 @@ program
       process.exit(1);
     }
     const adapter = new AutomergeAdapter(dbPath());
-    const actions = adapter.load();
-    const priorities = adapter.loadPriorities();
-    const resolved = ids.map((prefix) => findAction(actions, prefix));
-    try {
-      resolved.reduce((prev, curr) => {
-        addPrerequisite(actions, priorities, prev.id, curr.id);
-        return curr;
-      });
-    } catch (e) {
-      adapter.close();
-      console.error((e as Error).message);
-      process.exit(1);
-    }
-    adapter.save(actions);
+    adapter.transact(({ actions, priorities }) => {
+      const resolved = ids.map((prefix) => findAction(actions, prefix));
+      try {
+        resolved.reduce((prev, curr) => {
+          addPrerequisite(actions, priorities, prev.id, curr.id);
+          return curr;
+        });
+      } catch (e) {
+        console.error((e as Error).message);
+        process.exit(1);
+      }
+      console.log(`Added prerequisite(s)`);
+      return { actions, priorities };
+    });
     adapter.close();
-    console.log(`Added prerequisite(s)`);
   });
 
 program
@@ -283,22 +283,21 @@ program
       process.exit(1);
     }
     const adapter = new AutomergeAdapter(dbPath());
-    const actions = adapter.load();
-    const resolved = ids.map((prefix) => findAction(actions, prefix));
-    const priorities = adapter.loadPriorities();
-    try {
-      resolved.reduce((prev, curr) => {
-        addPriority(actions, priorities, prev.id, curr.id);
-        return curr;
-      });
-    } catch (e) {
-      adapter.close();
-      console.error((e as Error).message);
-      process.exit(1);
-    }
-    adapter.savePriorities(priorities);
+    adapter.transact(({ actions, priorities }) => {
+      const resolved = ids.map((prefix) => findAction(actions, prefix));
+      try {
+        resolved.reduce((prev, curr) => {
+          addPriority(actions, priorities, prev.id, curr.id);
+          return curr;
+        });
+      } catch (e) {
+        console.error((e as Error).message);
+        process.exit(1);
+      }
+      console.log(`Added priority relation(s)`);
+      return { actions, priorities };
+    });
     adapter.close();
-    console.log(`Added priority relation(s)`);
   });
 
 program
@@ -311,21 +310,21 @@ program
       process.exit(1);
     }
     const adapter = new AutomergeAdapter(dbPath());
-    const actions = adapter.load();
-    const resolved = ids.map((prefix) => findAction(actions, prefix));
-    try {
-      resolved.reduce((prev, curr) => {
-        removePrerequisite(actions, prev.id, curr.id);
-        return curr;
-      });
-    } catch (e) {
-      adapter.close();
-      console.error((e as Error).message);
-      process.exit(1);
-    }
-    adapter.save(actions);
+    adapter.transact(({ actions, priorities }) => {
+      const resolved = ids.map((prefix) => findAction(actions, prefix));
+      try {
+        resolved.reduce((prev, curr) => {
+          removePrerequisite(actions, prev.id, curr.id);
+          return curr;
+        });
+      } catch (e) {
+        console.error((e as Error).message);
+        process.exit(1);
+      }
+      console.log(`Removed prerequisite(s)`);
+      return { actions, priorities };
+    });
     adapter.close();
-    console.log(`Removed prerequisite(s)`);
   });
 
 program
@@ -338,22 +337,21 @@ program
       process.exit(1);
     }
     const adapter = new AutomergeAdapter(dbPath());
-    const actions = adapter.load();
-    const resolved = ids.map((prefix) => findAction(actions, prefix));
-    const priorities = adapter.loadPriorities();
-    try {
-      resolved.reduce((prev, curr) => {
-        removePriority(priorities, prev.id, curr.id);
-        return curr;
-      });
-    } catch (e) {
-      adapter.close();
-      console.error((e as Error).message);
-      process.exit(1);
-    }
-    adapter.savePriorities(priorities);
+    adapter.transact(({ actions, priorities }) => {
+      const resolved = ids.map((prefix) => findAction(actions, prefix));
+      try {
+        resolved.reduce((prev, curr) => {
+          removePriority(priorities, prev.id, curr.id);
+          return curr;
+        });
+      } catch (e) {
+        console.error((e as Error).message);
+        process.exit(1);
+      }
+      console.log(`Removed priority relation(s)`);
+      return { actions, priorities };
+    });
     adapter.close();
-    console.log(`Removed priority relation(s)`);
   });
 
 program.parse();

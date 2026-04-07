@@ -145,6 +145,31 @@ function applyActions(
   });
 }
 
+function docToPriorities(doc: Automerge.Doc<DocSchema>): Priority[] {
+  return (doc.priorities ?? []).map((p) => ({
+    higher: p.higher,
+    lower: p.lower,
+    createdAt: p.createdAt,
+  }));
+}
+
+function applyPriorities(
+  doc: Automerge.Doc<DocSchema>,
+  priorities: Priority[],
+): Automerge.Doc<DocSchema> {
+  return Automerge.change(doc, (d) => {
+    if (!d.priorities) d.priorities = [];
+    while (d.priorities.length > 0) d.priorities.splice(0, 1);
+    for (const p of priorities) {
+      d.priorities.push({
+        higher: p.higher,
+        lower: p.lower,
+        createdAt: p.createdAt,
+      });
+    }
+  });
+}
+
 export class AutomergeAdapter implements StoragePort {
   private filePath: string;
   contentionCount = 0;
@@ -170,13 +195,21 @@ export class AutomergeAdapter implements StoragePort {
   }
 
   /** Run a load→modify→save cycle under a single lock. */
-  transact(fn: (actions: Action[]) => Action[]): void {
+  transact(
+    fn: (data: { actions: Action[]; priorities: Priority[] }) => {
+      actions: Action[];
+      priorities: Priority[];
+    },
+  ): void {
     const { lockPath, contended } = acquireLock(this.filePath);
     if (contended) this.contentionCount++;
     try {
       const doc = loadDoc(this.filePath);
-      const actions = fn(docToActions(doc));
-      const updated = applyActions(doc, actions);
+      const actions = docToActions(doc);
+      const priorities = docToPriorities(doc);
+      const result = fn({ actions, priorities });
+      let updated = applyActions(doc, result.actions);
+      updated = applyPriorities(updated, result.priorities);
       writeFileSync(this.filePath, Automerge.save(updated));
     } finally {
       releaseLock(lockPath);
@@ -184,12 +217,7 @@ export class AutomergeAdapter implements StoragePort {
   }
 
   loadPriorities(): Priority[] {
-    const doc = loadDoc(this.filePath);
-    return (doc.priorities ?? []).map((p) => ({
-      higher: p.higher,
-      lower: p.lower,
-      createdAt: p.createdAt,
-    }));
+    return docToPriorities(loadDoc(this.filePath));
   }
 
   savePriorities(priorities: Priority[]): void {
@@ -197,17 +225,7 @@ export class AutomergeAdapter implements StoragePort {
     if (contended) this.contentionCount++;
     try {
       const doc = loadDoc(this.filePath);
-      const updated = Automerge.change(doc, (d) => {
-        if (!d.priorities) d.priorities = [];
-        while (d.priorities.length > 0) d.priorities.splice(0, 1);
-        for (const p of priorities) {
-          d.priorities.push({
-            higher: p.higher,
-            lower: p.lower,
-            createdAt: p.createdAt,
-          });
-        }
-      });
+      const updated = applyPriorities(doc, priorities);
       writeFileSync(this.filePath, Automerge.save(updated));
     } finally {
       releaseLock(lockPath);
