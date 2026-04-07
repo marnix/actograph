@@ -42,6 +42,7 @@ Commands for managing action state:
 - `acto donot <id>` — Pause an active action (Active → Open)
 - `acto skip <id>` — Skip an action (→ Skipped)
 - `acto redo <id>` — Reopen a done or skipped action (→ Open)
-- `acto list` — Show all actions in SP work order
+- `acto list` — Show open/active actions in SP work order
+- `acto list -a` — Show all actions including done and skipped
 
 State indicators in `list` output: `[ ]` Open, `[▶]` Active, `[✓]` Done, `[–]` Skipped.

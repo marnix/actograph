@@ -110,6 +110,54 @@ describe("computeWorkOrder", () => {
     );
     expect(edges(g)).toEqual(["a->b", "a->c", "b->d", "c->d"]);
   });
+
+  it("transitive through hidden: a->B->c preserves a->c", () => {
+    // B is done/hidden, but a should still come before c
+    const all = [action("a"), action("b", "a"), action("c", "b")];
+    const visible = [action("a"), action("c", "b")];
+    const g = computeWorkOrder(visible, [], all);
+    expect(edges(g)).toEqual(["a->c"]);
+  });
+
+  it("transitive through multiple hidden: a->B->C->d", () => {
+    const all = [
+      action("a"),
+      action("b", "a"),
+      action("c", "b"),
+      action("d", "c"),
+    ];
+    const visible = [action("a"), action("d", "c")];
+    const g = computeWorkOrder(visible, [], all);
+    expect(edges(g)).toEqual(["a->d"]);
+  });
+
+  it("hidden node fans out: a->B, B->c, B->d", () => {
+    const all = [
+      action("a"),
+      action("b", "a"),
+      action("c", "b"),
+      action("d", "b"),
+    ];
+    const visible = [action("a"), action("c", "b"), action("d", "b")];
+    const g = computeWorkOrder(visible, [], all);
+    expect(edges(g)).toEqual(["a->c", "a->d"]);
+  });
+
+  it("hidden priority: a >B> c preserves a->c", () => {
+    const all = [action("a"), action("b"), action("c")];
+    const visible = [action("a"), action("c")];
+    const prios: Priority[] = [
+      { higher: "a", lower: "b", createdAt: 0 },
+      { higher: "b", lower: "c", createdAt: 0 },
+    ];
+    const g = computeWorkOrder(visible, prios, all);
+    expect(edges(g)).toEqual(["a->c"]);
+  });
+
+  it("no hidden actions: allActions param is optional", () => {
+    const g = computeWorkOrder([action("a"), action("b", "a")], []);
+    expect(edges(g)).toEqual(["a->b"]);
+  });
 });
 
 function fullAction(id: string, ...prereqIds: string[]) {

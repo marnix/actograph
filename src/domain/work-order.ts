@@ -37,39 +37,58 @@ export function wouldCreateCycle(
 export function computeWorkOrder(
   actions: ActionSummary[],
   priorities: Priority[],
+  allActions?: ActionSummary[],
 ): Graph {
-  const ids = new Set(actions.map((a) => a.id));
+  const source = allActions ?? actions;
+  const sourceIds = new Set(source.map((a) => a.id));
 
-  const graph = new Graph({ type: "directed", allowSelfLoops: false });
-  for (const id of ids) graph.addNode(id);
+  const full = new Graph({ type: "directed", allowSelfLoops: false });
+  for (const id of sourceIds) full.addNode(id);
 
   // Add prerequisite edges: required action → dependent action
-  for (const action of actions) {
+  for (const action of source) {
     for (const prereq of action.prerequisites) {
       if (
-        ids.has(prereq.actionId) &&
-        !graph.hasEdge(prereq.actionId, action.id)
+        sourceIds.has(prereq.actionId) &&
+        !full.hasEdge(prereq.actionId, action.id)
       ) {
-        graph.addEdge(prereq.actionId, action.id);
+        full.addEdge(prereq.actionId, action.id);
       }
     }
   }
 
   // Add priority edges oldest-first, skipping any that would create a cycle
   const sorted = [...priorities]
-    .filter((p) => ids.has(p.higher) && ids.has(p.lower))
+    .filter((p) => sourceIds.has(p.higher) && sourceIds.has(p.lower))
     .sort((a, b) => a.createdAt - b.createdAt);
 
   for (const p of sorted) {
     if (
-      !graph.hasEdge(p.higher, p.lower) &&
-      !wouldCreateCycle(graph, p.higher, p.lower)
+      !full.hasEdge(p.higher, p.lower) &&
+      !wouldCreateCycle(full, p.higher, p.lower)
     ) {
-      graph.addEdge(p.higher, p.lower);
+      full.addEdge(p.higher, p.lower);
     }
   }
 
-  return graph;
+  if (!allActions) return full;
+
+  // Contract hidden nodes: for each hidden node, connect its
+  // in-neighbors directly to its out-neighbors, then drop it.
+  const visibleIds = new Set(actions.map((a) => a.id));
+  for (const id of sourceIds) {
+    if (visibleIds.has(id)) continue;
+    for (const src of full.inNeighbors(id)) {
+      for (const tgt of full.outNeighbors(id)) {
+        if (src !== tgt && !full.hasEdge(src, tgt)) {
+          full.addEdge(src, tgt);
+        }
+      }
+    }
+    full.dropNode(id);
+  }
+
+  return full;
 }
 
 export function addPrerequisite(
