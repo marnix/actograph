@@ -9,13 +9,13 @@ const cli = join(import.meta.dirname, "..", "dist", "index.js");
 function run(
   dataDir: string,
   ...args: string[]
-): Promise<{ code: number | null; stdout: string; stderr: string }> {
+): Promise<{ code: number | string | null; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
     execFile(
       process.execPath,
       [cli, "--data-dir", dataDir, ...args],
       (err, stdout, stderr) => {
-        resolve({ code: err ? err.code ?? 1 : 0, stdout, stderr });
+        resolve({ code: err ? (err.code ?? 1) : 0, stdout, stderr });
       },
     );
   });
