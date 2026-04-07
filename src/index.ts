@@ -2,6 +2,7 @@
 
 import { Command } from "commander";
 import { generateActionId } from "./domain/action-id.js";
+import { findAction } from "./cli/find-action.js";
 import type { ActionState } from "./domain/action.js";
 import { transitionAction } from "./domain/action.js";
 import { isTagTitle } from "./domain/tags.js";
@@ -39,38 +40,6 @@ function resolveDataDir(): string {
 
 function dbPath(): string {
   return join(resolveDataDir(), "actograph.automerge");
-}
-
-function findAction<T extends { id: string; title: string }>(
-  actions: T[],
-  prefix: string,
-): T {
-  // Try matching by tag title first (e.g. "++urgent")
-  if (prefix.startsWith("++")) {
-    const tagMatches = actions.filter((a) => a.title === prefix);
-    if (tagMatches.length === 1) return tagMatches[0] as T;
-    if (tagMatches.length > 1) {
-      console.error(
-        `Ambiguous tag "${prefix}": matches ${tagMatches.map((a) => a.id).join(", ")}`,
-      );
-      process.exit(1);
-    }
-    // fall through to ID prefix matching
-  }
-  const matches = actions.filter((a) => a.id.startsWith(prefix));
-  if (matches.length === 0) {
-    console.error(`No action found matching "${prefix}"`);
-    process.exit(1);
-  }
-  if (matches.length > 1) {
-    console.error(
-      `Ambiguous prefix "${prefix}": matches ${matches.map((a) => a.id).join(", ")}`,
-    );
-    process.exit(1);
-  }
-  // length is exactly 1 here; destructuring is safe
-  const [match] = matches as [T];
-  return match;
 }
 
 // --- Work ---
@@ -220,14 +189,14 @@ function stateCommand(
     .action((idPrefix: string) => {
       const adapter = new AutomergeAdapter(dbPath());
       adapter.transact(({ actions, priorities }) => {
-        const action = findAction(actions, idPrefix);
         try {
+          const action = findAction(actions, idPrefix);
           transitionAction(action, newState);
+          console.log(`${label}: "${action.title}"`);
         } catch (e) {
           console.error((e as Error).message);
           process.exit(1);
         }
-        console.log(`${label}: "${action.title}"`);
         return { actions, priorities };
       });
       adapter.close();
@@ -255,8 +224,8 @@ program
     }
     const adapter = new AutomergeAdapter(dbPath());
     adapter.transact(({ actions, priorities }) => {
-      const resolved = ids.map((prefix) => findAction(actions, prefix));
       try {
+        const resolved = ids.map((prefix) => findAction(actions, prefix));
         resolved.reduce((prev, curr) => {
           addPrerequisite(actions, priorities, prev.id, curr.id);
           return curr;
@@ -284,8 +253,8 @@ program
     }
     const adapter = new AutomergeAdapter(dbPath());
     adapter.transact(({ actions, priorities }) => {
-      const resolved = ids.map((prefix) => findAction(actions, prefix));
       try {
+        const resolved = ids.map((prefix) => findAction(actions, prefix));
         resolved.reduce((prev, curr) => {
           addPriority(actions, priorities, prev.id, curr.id);
           return curr;
@@ -311,8 +280,8 @@ program
     }
     const adapter = new AutomergeAdapter(dbPath());
     adapter.transact(({ actions, priorities }) => {
-      const resolved = ids.map((prefix) => findAction(actions, prefix));
       try {
+        const resolved = ids.map((prefix) => findAction(actions, prefix));
         resolved.reduce((prev, curr) => {
           removePrerequisite(actions, prev.id, curr.id);
           return curr;
@@ -338,8 +307,8 @@ program
     }
     const adapter = new AutomergeAdapter(dbPath());
     adapter.transact(({ actions, priorities }) => {
-      const resolved = ids.map((prefix) => findAction(actions, prefix));
       try {
+        const resolved = ids.map((prefix) => findAction(actions, prefix));
         resolved.reduce((prev, curr) => {
           removePriority(priorities, prev.id, curr.id);
           return curr;
