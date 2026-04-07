@@ -76,18 +76,26 @@ program
 
 program
   .command("list")
-  .description("List all actions")
-  .action(() => {
+  .description("List actions (open/active only; use -a for all)")
+  .option("-a, --all", "Show all actions including done and skipped")
+  .action((opts: { all?: boolean }) => {
     const adapter = new AutomergeAdapter(dbPath());
     const actions = adapter.load();
     const priorities = adapter.loadPriorities();
     adapter.close();
-    if (actions.length === 0) {
-      console.log("No actions.");
+    const visible = opts.all
+      ? actions
+      : actions.filter((a) => a.state === "open" || a.state === "active");
+    if (visible.length === 0) {
+      console.log(opts.all ? "No actions." : "No open/active actions.");
       return;
     }
-    const actionMap = new Map(actions.map((a) => [a.id, a]));
-    const graph = computeWorkOrder(actions, priorities);
+    const actionMap = new Map(visible.map((a) => [a.id, a]));
+    const graph = computeWorkOrder(
+      visible,
+      priorities,
+      opts.all ? undefined : actions,
+    );
     const sp = spDecompose(graph);
     const output = renderSP(sp, (id) => {
       const a = actionMap.get(id);
