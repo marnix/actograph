@@ -2,12 +2,17 @@
 
 import { Command } from "commander";
 import { generateActionId } from "./domain/action-id.js";
+import { findAction } from "./cli/find-action.js";
+import {
+  buildAnnotations,
+  formatActionLabel,
+  formatTagLabel,
+} from "./cli/list-format.js";
 import type { ActionState } from "./domain/action.js";
 import { transitionAction } from "./domain/action.js";
 import { isTagTitle } from "./domain/tags.js";
 import {
   computeWorkOrder,
-  expandTagRelations,
   addPrerequisite,
   addPriority,
   removePrerequisite,
@@ -41,38 +46,6 @@ function dbPath(): string {
   return join(resolveDataDir(), "actograph.automerge");
 }
 
-function findAction<T extends { id: string; title: string }>(
-  actions: T[],
-  prefix: string,
-): T {
-  // Try matching by tag title first (e.g. "++urgent")
-  if (prefix.startsWith("++")) {
-    const tagMatches = actions.filter((a) => a.title === prefix);
-    if (tagMatches.length === 1) return tagMatches[0] as T;
-    if (tagMatches.length > 1) {
-      console.error(
-        `Ambiguous tag "${prefix}": matches ${tagMatches.map((a) => a.id).join(", ")}`,
-      );
-      process.exit(1);
-    }
-    // fall through to ID prefix matching
-  }
-  const matches = actions.filter((a) => a.id.startsWith(prefix));
-  if (matches.length === 0) {
-    console.error(`No action found matching "${prefix}"`);
-    process.exit(1);
-  }
-  if (matches.length > 1) {
-    console.error(
-      `Ambiguous prefix "${prefix}": matches ${matches.map((a) => a.id).join(", ")}`,
-    );
-    process.exit(1);
-  }
-  // length is exactly 1 here; destructuring is safe
-  const [match] = matches as [T];
-  return match;
-}
-
 // --- Work ---
 
 program
@@ -94,24 +67,13 @@ program
         console.log("No tag actions.");
         return;
       }
-      const tagMap = new Map(tagActions.map((a) => [a.id, a]));
+      const annotations = buildAnnotations(tagActions, tagActions, priorities);
       const graph = computeWorkOrder(tagActions, priorities);
-      const prioPreds = new Map<string, Set<string>>();
-      for (const p of priorities) {
-        if (tagMap.has(p.higher) && tagMap.has(p.lower)) {
-          if (!prioPreds.has(p.lower)) prioPreds.set(p.lower, new Set());
-          prioPreds.get(p.lower)!.add(p.higher);
-        }
-      }
       const sp = spDecompose(graph);
+      const tagMap = new Map(tagActions.map((a) => [a.id, a]));
       const output = renderSP(sp, (id) => {
         const a = tagMap.get(id);
-        if (!a) return id;
-        const prios = prioPreds.get(id);
-        const parts: string[] = [];
-        if (prios) parts.push(...Array.from(prios).map((p) => `prio:${p}`));
-        const suffix = parts.length > 0 ? `  ← ${parts.join(", ")}` : "";
-        return `${a.title}  (${a.id})${suffix}`;
+        return a ? formatTagLabel(a, annotations) : id;
       });
       console.log(output);
       return;
@@ -128,60 +90,17 @@ program
       console.log(opts.all ? "No actions." : "No open/active actions.");
       return;
     }
-    const actionMap = new Map(visible.map((a) => [a.id, a]));
+    const annotations = buildAnnotations(visible, actions, priorities);
     const graph = computeWorkOrder(
       visible,
       priorities,
       opts.all ? undefined : actions,
     );
-
-    // Build lookup: for each visible action, which visible actions
-    // are direct predecessors via req or prio?
-    const reqPreds = new Map<string, Set<string>>();
-    const prioPreds = new Map<string, Set<string>>();
-    for (const a of visible) {
-      // Direct and transitive-through-hidden prerequisite predecessors
-      for (const p of a.prerequisites) {
-        if (actionMap.has(p.actionId)) {
-          if (!reqPreds.has(a.id)) reqPreds.set(a.id, new Set());
-          reqPreds.get(a.id)!.add(p.actionId);
-        }
-      }
-    }
-    for (const p of priorities) {
-      if (actionMap.has(p.higher) && actionMap.has(p.lower)) {
-        if (!prioPreds.has(p.lower)) prioPreds.set(p.lower, new Set());
-        prioPreds.get(p.lower)!.add(p.higher);
-      }
-    }
-    // Include tag-expanded priorities in annotations
-    const { extraPrios } = expandTagRelations(actions, priorities);
-    for (const p of extraPrios) {
-      if (actionMap.has(p.higher) && actionMap.has(p.lower)) {
-        if (!prioPreds.has(p.lower)) prioPreds.set(p.lower, new Set());
-        prioPreds.get(p.lower)!.add(p.higher);
-      }
-    }
-
     const sp = spDecompose(graph);
+    const actionMap = new Map(visible.map((a) => [a.id, a]));
     const output = renderSP(sp, (id) => {
       const a = actionMap.get(id);
-      if (!a) return id;
-      const mark =
-        a.state === "done"
-          ? "✓"
-          : a.state === "active"
-            ? "▶"
-            : a.state === "skipped"
-              ? "–"
-              : " ";
-      const reqs = reqPreds.get(id);
-      const prios = prioPreds.get(id);
-      const parts: string[] = [];
-      if (reqs) parts.push(...Array.from(reqs).map((r) => `req:${r}`));
-      if (prios) parts.push(...Array.from(prios).map((p) => `prio:${p}`));
-      const suffix = parts.length > 0 ? `  ← ${parts.join(", ")}` : "";
-      return `[${mark}] ${a.title}  (${a.id})${suffix}`;
+      return a ? formatActionLabel(a, annotations) : id;
     });
     console.log(output);
   });
@@ -192,16 +111,17 @@ program
   .argument("<title>", "Action title")
   .action((title: string) => {
     const adapter = new AutomergeAdapter(dbPath());
-    const actions = adapter.load();
-    actions.push({
-      id: generateActionId(),
-      title,
-      state: "open",
-      prerequisites: [],
+    adapter.transact(({ actions, priorities }) => {
+      actions.push({
+        id: generateActionId(),
+        title,
+        state: "open",
+        prerequisites: [],
+      });
+      console.log(`Added: "${title}" (${actions.length} actions total)`);
+      return { actions, priorities };
     });
-    adapter.save(actions);
     adapter.close();
-    console.log(`Added: "${title}" (${actions.length} actions total)`);
   });
 
 // --- Lifecycle ---
@@ -218,18 +138,18 @@ function stateCommand(
     .argument("<id>", "Action ID (or prefix)")
     .action((idPrefix: string) => {
       const adapter = new AutomergeAdapter(dbPath());
-      const actions = adapter.load();
-      const action = findAction(actions, idPrefix);
-      try {
-        transitionAction(action, newState);
-      } catch (e) {
-        adapter.close();
-        console.error((e as Error).message);
-        process.exit(1);
-      }
-      adapter.save(actions);
+      adapter.transact(({ actions, priorities }) => {
+        try {
+          const action = findAction(actions, idPrefix);
+          transitionAction(action, newState);
+          console.log(`${label}: "${action.title}"`);
+        } catch (e) {
+          console.error((e as Error).message);
+          process.exit(1);
+        }
+        return { actions, priorities };
+      });
       adapter.close();
-      console.log(`${label}: "${action.title}"`);
     });
 }
 
@@ -253,22 +173,21 @@ program
       process.exit(1);
     }
     const adapter = new AutomergeAdapter(dbPath());
-    const actions = adapter.load();
-    const priorities = adapter.loadPriorities();
-    const resolved = ids.map((prefix) => findAction(actions, prefix));
-    try {
-      resolved.reduce((prev, curr) => {
-        addPrerequisite(actions, priorities, prev.id, curr.id);
-        return curr;
-      });
-    } catch (e) {
-      adapter.close();
-      console.error((e as Error).message);
-      process.exit(1);
-    }
-    adapter.save(actions);
+    adapter.transact(({ actions, priorities }) => {
+      try {
+        const resolved = ids.map((prefix) => findAction(actions, prefix));
+        resolved.reduce((prev, curr) => {
+          addPrerequisite(actions, priorities, prev.id, curr.id);
+          return curr;
+        });
+      } catch (e) {
+        console.error((e as Error).message);
+        process.exit(1);
+      }
+      console.log(`Added prerequisite(s)`);
+      return { actions, priorities };
+    });
     adapter.close();
-    console.log(`Added prerequisite(s)`);
   });
 
 program
@@ -283,22 +202,21 @@ program
       process.exit(1);
     }
     const adapter = new AutomergeAdapter(dbPath());
-    const actions = adapter.load();
-    const resolved = ids.map((prefix) => findAction(actions, prefix));
-    const priorities = adapter.loadPriorities();
-    try {
-      resolved.reduce((prev, curr) => {
-        addPriority(actions, priorities, prev.id, curr.id);
-        return curr;
-      });
-    } catch (e) {
-      adapter.close();
-      console.error((e as Error).message);
-      process.exit(1);
-    }
-    adapter.savePriorities(priorities);
+    adapter.transact(({ actions, priorities }) => {
+      try {
+        const resolved = ids.map((prefix) => findAction(actions, prefix));
+        resolved.reduce((prev, curr) => {
+          addPriority(actions, priorities, prev.id, curr.id);
+          return curr;
+        });
+      } catch (e) {
+        console.error((e as Error).message);
+        process.exit(1);
+      }
+      console.log(`Added priority relation(s)`);
+      return { actions, priorities };
+    });
     adapter.close();
-    console.log(`Added priority relation(s)`);
   });
 
 program
@@ -311,21 +229,21 @@ program
       process.exit(1);
     }
     const adapter = new AutomergeAdapter(dbPath());
-    const actions = adapter.load();
-    const resolved = ids.map((prefix) => findAction(actions, prefix));
-    try {
-      resolved.reduce((prev, curr) => {
-        removePrerequisite(actions, prev.id, curr.id);
-        return curr;
-      });
-    } catch (e) {
-      adapter.close();
-      console.error((e as Error).message);
-      process.exit(1);
-    }
-    adapter.save(actions);
+    adapter.transact(({ actions, priorities }) => {
+      try {
+        const resolved = ids.map((prefix) => findAction(actions, prefix));
+        resolved.reduce((prev, curr) => {
+          removePrerequisite(actions, prev.id, curr.id);
+          return curr;
+        });
+      } catch (e) {
+        console.error((e as Error).message);
+        process.exit(1);
+      }
+      console.log(`Removed prerequisite(s)`);
+      return { actions, priorities };
+    });
     adapter.close();
-    console.log(`Removed prerequisite(s)`);
   });
 
 program
@@ -338,22 +256,21 @@ program
       process.exit(1);
     }
     const adapter = new AutomergeAdapter(dbPath());
-    const actions = adapter.load();
-    const resolved = ids.map((prefix) => findAction(actions, prefix));
-    const priorities = adapter.loadPriorities();
-    try {
-      resolved.reduce((prev, curr) => {
-        removePriority(priorities, prev.id, curr.id);
-        return curr;
-      });
-    } catch (e) {
-      adapter.close();
-      console.error((e as Error).message);
-      process.exit(1);
-    }
-    adapter.savePriorities(priorities);
+    adapter.transact(({ actions, priorities }) => {
+      try {
+        const resolved = ids.map((prefix) => findAction(actions, prefix));
+        resolved.reduce((prev, curr) => {
+          removePriority(priorities, prev.id, curr.id);
+          return curr;
+        });
+      } catch (e) {
+        console.error((e as Error).message);
+        process.exit(1);
+      }
+      console.log(`Removed priority relation(s)`);
+      return { actions, priorities };
+    });
     adapter.close();
-    console.log(`Removed priority relation(s)`);
   });
 
 program.parse();

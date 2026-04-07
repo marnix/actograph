@@ -7,6 +7,9 @@ actograph/
 ├── src/
 │   ├── index.ts          # CLI entry point with Commander setup
 │   ├── storage.ts        # Database path configuration
+│   ├── cli/
+│   │   ├── find-action.ts    # Action lookup by ID prefix or tag title
+│   │   └── list-format.ts    # Annotation building and label formatting for list
 │   ├── domain/
 │   │   └── action.ts     # Action domain entity
 │   ├── ports/
@@ -71,6 +74,28 @@ program
 
 - `StoragePort` interface decouples domain from storage implementation
 - `AutomergeAdapter` implements the port using Automerge
+
+## Code Quality Rules
+
+### Architecture
+
+- Validation and business rules belong in `src/domain/`, not in CLI command handlers. CLI code should only parse input, call domain functions, and format output.
+- Avoid code duplication across commands — extract shared helpers.
+- Keep files focused and manageable; split when they become hard to navigate.
+
+### Type Safety
+
+- Never use `as` casts to narrow types from external data (storage, user input). Validate at runtime and throw on unexpected values.
+- New fields on domain types (e.g., `Action`) must be required, not optional — this forces TypeScript to flag every construction site. If migration needs a default, handle it in the adapter layer, not by making the domain field optional.
+
+### Testability
+
+- Domain and CLI-callable functions must not call `process.exit()`. Throw errors instead; let the top-level command handler catch and exit.
+
+### Storage
+
+- CLI commands that read-then-write must use `transact()` to hold the lock for the full cycle.
+- `generateActionId()` must receive the set of existing IDs and retry on collision.
 
 ## Code Style
 

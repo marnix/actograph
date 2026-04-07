@@ -8,16 +8,19 @@ const [dbPath, index] = process.argv.slice(2);
 const id = randomUUID();
 const adapter = new AutomergeAdapter(dbPath!);
 
-adapter.transact((actions) => [
-  ...actions,
-  { id, title: `task-${index}`, state: "open", prerequisites: [] },
-]);
+adapter.transact(({ actions, priorities }) => ({
+  actions: [
+    ...actions,
+    { id, title: `task-${index}`, state: "open" as const, prerequisites: [] },
+  ],
+  priorities,
+}));
 
-adapter.transact((actions) => {
+adapter.transact(({ actions, priorities }) => {
   const action = actions.find((a) => a.id === id);
   if (!action) throw new Error(`Action ${id} not found after add`);
   action.state = "done";
-  return actions;
+  return { actions, priorities };
 });
 
 process.stdout.write(`${id}:${adapter.contentionCount}`);

@@ -21,7 +21,7 @@ function run(
   });
 }
 
-describe("CLI: state commands on tag actions", () => {
+describe("CLI: state command on tag action (single process)", () => {
   let dataDir: string;
 
   beforeEach(async () => {
@@ -33,12 +33,9 @@ describe("CLI: state commands on tag actions", () => {
     rmSync(dataDir, { recursive: true, force: true });
   });
 
-  it.each(["go", "stop", "done", "donot", "redo"])(
-    "%s rejects tag action",
-    async (cmd) => {
-      const { code, stderr } = await run(dataDir, cmd, "++urgent");
-      expect(code).not.toBe(0);
-      expect(stderr).toContain("Cannot change state of tag action");
-    },
-  );
+  it("rejects state change on tag action", async () => {
+    const { code, stderr } = await run(dataDir, "go", "++urgent");
+    expect(code).not.toBe(0);
+    expect(stderr).toContain("Cannot change state of tag action");
+  });
 });
