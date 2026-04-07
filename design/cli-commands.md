@@ -7,7 +7,9 @@ Design decisions for the `acto` command-line interface.
 Actions are listed in **work order** (the order they should be done):
 
 - `acto req A B C` — A is required by B, B is required by C
+- `acto unreq A B C` — Remove A→B and B→C prerequisites
 - `acto prio A B C` — A has priority over B, B has priority over C
+- `acto unprio A B C` — Remove A>B and B>C priority relations
 
 The 2-argument form is just a special case: `acto req A B` means "A is required by B".
 

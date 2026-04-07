@@ -106,3 +106,27 @@ export function addPriority(
   }
   priorities.push({ higher: higherId, lower: lowerId, createdAt: Date.now() });
 }
+
+export function removePrerequisite(
+  actions: Action[],
+  fromId: string,
+  toId: string,
+): void {
+  const target = actions.find((a) => a.id === toId);
+  if (!target) throw new Error(`Action not found: ${toId}`);
+  const idx = target.prerequisites.findIndex((p) => p.actionId === fromId);
+  if (idx === -1) throw new Error(`No prerequisite ${fromId} on ${toId}`);
+  target.prerequisites.splice(idx, 1);
+}
+
+export function removePriority(
+  priorities: Priority[],
+  higherId: string,
+  lowerId: string,
+): void {
+  const idx = priorities.findIndex(
+    (p) => p.higher === higherId && p.lower === lowerId,
+  );
+  if (idx === -1) throw new Error(`No priority ${higherId} over ${lowerId}`);
+  priorities.splice(idx, 1);
+}

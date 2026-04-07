@@ -8,6 +8,8 @@ import {
   computeWorkOrder,
   addPrerequisite,
   addPriority,
+  removePrerequisite,
+  removePriority,
 } from "./domain/work-order.js";
 import { spDecompose } from "./domain/sp-decompose.js";
 import { renderSP } from "./domain/render-sp.js";
@@ -194,6 +196,61 @@ program
     adapter.savePriorities(priorities);
     adapter.close();
     console.log(`Added priority relation(s)`);
+  });
+
+program
+  .command("unreq")
+  .description("Remove prerequisites: acto unreq A B C removes A→B and B→C")
+  .argument("<ids...>", "Action IDs (or prefixes) in work order")
+  .action((ids: string[]) => {
+    if (ids.length < 2) {
+      console.error("Need at least two action IDs");
+      process.exit(1);
+    }
+    const adapter = new AutomergeAdapter(dbPath());
+    const actions = adapter.load();
+    const resolved = ids.map((prefix) => findAction(actions, prefix));
+    try {
+      resolved.reduce((prev, curr) => {
+        removePrerequisite(actions, prev.id, curr.id);
+        return curr;
+      });
+    } catch (e) {
+      adapter.close();
+      console.error((e as Error).message);
+      process.exit(1);
+    }
+    adapter.save(actions);
+    adapter.close();
+    console.log(`Removed prerequisite(s)`);
+  });
+
+program
+  .command("unprio")
+  .description("Remove priorities: acto unprio A B C removes A>B and B>C")
+  .argument("<ids...>", "Action IDs (or prefixes) in priority order")
+  .action((ids: string[]) => {
+    if (ids.length < 2) {
+      console.error("Need at least two action IDs");
+      process.exit(1);
+    }
+    const adapter = new AutomergeAdapter(dbPath());
+    const actions = adapter.load();
+    const resolved = ids.map((prefix) => findAction(actions, prefix));
+    const priorities = adapter.loadPriorities();
+    try {
+      resolved.reduce((prev, curr) => {
+        removePriority(priorities, prev.id, curr.id);
+        return curr;
+      });
+    } catch (e) {
+      adapter.close();
+      console.error((e as Error).message);
+      process.exit(1);
+    }
+    adapter.savePriorities(priorities);
+    adapter.close();
+    console.log(`Removed priority relation(s)`);
   });
 
 program.parse();
