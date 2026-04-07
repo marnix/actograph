@@ -3,6 +3,8 @@ import {
   computeWorkOrder,
   addPrerequisite,
   addPriority,
+  removePrerequisite,
+  removePriority,
 } from "./work-order.js";
 import type { Priority } from "./priority.js";
 
@@ -167,5 +169,39 @@ describe("addPriority", () => {
   it("throws on cycle", () => {
     const actions = [fullAction("a"), fullAction("b", "a")];
     expect(() => addPriority(actions, [], "b", "a")).toThrow("cycle");
+  });
+});
+
+describe("removePrerequisite", () => {
+  it("removes an existing prerequisite", () => {
+    const actions = [fullAction("a"), fullAction("b", "a")];
+    removePrerequisite(actions, "a", "b");
+    const b = actions.find((a) => a.id === "b")!;
+    expect(b.prerequisites).toHaveLength(0);
+  });
+
+  it("throws when prerequisite does not exist", () => {
+    const actions = [fullAction("a"), fullAction("b")];
+    expect(() => removePrerequisite(actions, "a", "b")).toThrow(
+      "No prerequisite",
+    );
+  });
+
+  it("throws on unknown target", () => {
+    expect(() => removePrerequisite([fullAction("a")], "a", "z")).toThrow(
+      "Action not found",
+    );
+  });
+});
+
+describe("removePriority", () => {
+  it("removes an existing priority", () => {
+    const prios: Priority[] = [{ higher: "a", lower: "b", createdAt: 0 }];
+    removePriority(prios, "a", "b");
+    expect(prios).toHaveLength(0);
+  });
+
+  it("throws when priority does not exist", () => {
+    expect(() => removePriority([], "a", "b")).toThrow("No priority");
   });
 });
