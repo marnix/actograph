@@ -4,7 +4,7 @@ Known weaknesses, roughly ordered by risk of bugs slipping through.
 
 ## Data integrity
 
-1. **Dangling prerequisites/priorities** — If an action is removed or its UUID changes, prerequisite/priority references to it become orphaned. `computeWorkOrder` silently skips them, but there's no cleanup or warning. Could accumulate after merges.
+1. **Dangling prerequisites/priorities** — If an action is removed or its UUID changes, prerequisite/priority references to it become orphaned. `computeWorkOrder` silently skips them. Warned at load time but not auto-cleaned; could accumulate after merges.
 
 ## Maintainability
 

@@ -250,6 +250,27 @@ function applyActions(
   });
 }
 
+function warnDanglingRefs(actions: Action[], priorities: Priority[]): void {
+  const uuids = new Set(actions.map((a) => a.uuid));
+  for (const a of actions) {
+    for (const p of a.prerequisites) {
+      if (!uuids.has(p.uuid)) {
+        console.error(
+          `Warning: action ${a.slug} has prerequisite referencing unknown ${p.uuid}`,
+        );
+      }
+    }
+  }
+  for (const p of priorities) {
+    if (!uuids.has(p.higher)) {
+      console.error(`Warning: priority references unknown action ${p.higher}`);
+    }
+    if (!uuids.has(p.lower)) {
+      console.error(`Warning: priority references unknown action ${p.lower}`);
+    }
+  }
+}
+
 function docToPriorities(doc: Automerge.Doc<DocSchema>): Priority[] {
   return (doc.priorities ?? []).map((p) => ({
     higher: p.higher,
@@ -296,11 +317,12 @@ export class AutomergeAdapter implements StoragePort {
             ?.uuid ?? k,
         ]),
       );
-      updated = applyPriorities(
-        updated,
-        migratePriorities(doc.priorities ?? [], oldKeys),
-      );
+      const priorities = migratePriorities(doc.priorities ?? [], oldKeys);
+      updated = applyPriorities(updated, priorities);
       writeFileSync(this.filePath, Automerge.save(updated));
+      warnDanglingRefs(actions, priorities);
+    } else {
+      warnDanglingRefs(actions, docToPriorities(doc));
     }
     return actions;
   }
@@ -330,6 +352,7 @@ export class AutomergeAdapter implements StoragePort {
       const doc = loadDoc(this.filePath);
       const { actions } = docToActions(doc);
       const priorities = docToPriorities(doc);
+      warnDanglingRefs(actions, priorities);
       const result = fn({ actions, priorities });
       let updated = applyActions(doc, result.actions);
       updated = applyPriorities(updated, result.priorities);
