@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { Action } from "../domain/action.js";
+import { createAction } from "../domain/action.js";
 import type { Priority } from "../domain/priority.js";
 import {
   buildAnnotations,
@@ -13,13 +14,10 @@ function makeAction(
   state: "open" | "active" | "done" | "skipped" = "open",
   prereqUuids: string[] = [],
 ): Action {
-  return {
-    uuid,
-    slug: uuid,
-    title,
-    state,
-    prerequisites: prereqUuids.map((u) => ({ uuid: u, createdAt: 0 })),
-  };
+  const a = createAction(uuid, uuid, title);
+  a.state = state;
+  a.prerequisites = prereqUuids.map((u) => ({ uuid: u, createdAt: 0 }));
+  return a;
 }
 
 describe("buildAnnotations", () => {

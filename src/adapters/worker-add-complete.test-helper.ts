@@ -1,5 +1,8 @@
 // Child process script: performs one add-then-complete cycle against a shared db file.
 // Outputs "uuid:contentionCount" to stdout.
+//
+// NOTE: cannot import domain modules here because --experimental-strip-types
+// does not resolve .js extensions in transitive imports.
 import { randomUUID } from "crypto";
 import { AutomergeAdapter } from "./automerge-adapter.ts";
 

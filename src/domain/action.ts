@@ -38,3 +38,12 @@ export interface Action {
   state: ActionState;
   prerequisites: Prerequisite[];
 }
+
+/** Create a new action with state "open" and no prerequisites. */
+export function createAction(
+  uuid: string,
+  slug: string,
+  title: string,
+): Action {
+  return { uuid, slug, title, state: "open", prerequisites: [] };
+}

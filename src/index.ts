@@ -10,7 +10,7 @@ import {
   formatTagLabel,
 } from "./cli/list-format.js";
 import type { ActionState } from "./domain/action.js";
-import { transitionAction } from "./domain/action.js";
+import { transitionAction, createAction } from "./domain/action.js";
 import { isTagTitle } from "./domain/tags.js";
 import {
   computeWorkOrder,
@@ -113,13 +113,13 @@ program
   .action((title: string) => {
     const adapter = new AutomergeAdapter(dbPath());
     adapter.transact(({ actions, priorities }) => {
-      actions.push({
-        uuid: randomUUID(),
-        slug: generateSlug((s) => actions.every((a) => a.slug !== s)),
-        title,
-        state: "open",
-        prerequisites: [],
-      });
+      actions.push(
+        createAction(
+          randomUUID(),
+          generateSlug((s) => actions.every((a) => a.slug !== s)),
+          title,
+        ),
+      );
       console.log(`Added: "${title}" (${actions.length} actions total)`);
       return { actions, priorities };
     });

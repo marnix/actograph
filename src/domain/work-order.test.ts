@@ -6,6 +6,7 @@ import {
   removePrerequisite,
   removePriority,
 } from "./work-order.js";
+import { createAction } from "./action.js";
 import type { Priority } from "./priority.js";
 
 function action(uuid: string, ...prereqUuids: string[]) {
@@ -152,13 +153,9 @@ describe("computeWorkOrder", () => {
 });
 
 function fullAction(uuid: string, ...prereqUuids: string[]) {
-  return {
-    uuid,
-    slug: uuid,
-    title: uuid,
-    state: "open" as const,
-    prerequisites: prereqUuids.map((u) => ({ uuid: u, createdAt: 0 })),
-  };
+  const a = createAction(uuid, uuid, uuid);
+  a.prerequisites = prereqUuids.map((u) => ({ uuid: u, createdAt: 0 }));
+  return a;
 }
 
 describe("addPrerequisite", () => {

@@ -1,16 +1,10 @@
 import { describe, it, expect } from "vitest";
 import type { Action, ActionState } from "./action.js";
-import { canTransition, transitionAction } from "./action.js";
+import { canTransition, transitionAction, createAction } from "./action.js";
 
 describe("Action", () => {
   it("should create an action with title and state", () => {
-    const action: Action = {
-      uuid: "u1",
-      slug: "test-1",
-      title: "Test action",
-      state: "open",
-      prerequisites: [],
-    };
+    const action = createAction("u1", "test-1", "Test action");
 
     expect(action.title).toBe("Test action");
     expect(action.state).toBe("open");
@@ -52,7 +46,9 @@ describe("canTransition", () => {
 
 describe("transitionAction", () => {
   function makeAction(state: ActionState, title = "test"): Action {
-    return { uuid: "u1", slug: "t", title, state, prerequisites: [] };
+    const a = createAction("u1", "t", title);
+    a.state = state;
+    return a;
   }
 
   it("mutates state on valid transition", () => {

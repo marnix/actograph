@@ -10,16 +10,14 @@ Known weaknesses, roughly ordered by risk of bugs slipping through.
 
 ## Correctness under change
 
-3. **`Action` objects constructed in many places with no factory** — The `Action` interface is built inline in `index.ts`, test files, and the test helper, each with different signatures for their `makeAction` helpers. Adding a field to `Action` requires updating 5+ sites; TypeScript won't catch missing optional fields.
-
-4. **Domain rules split between layers** — The tag-action state guard is in the domain (good), but other validations are missing or CLI-only. E.g., nothing prevents creating duplicate tag actions (`acto do '++urgent'` twice), which causes ambiguous lookups.
+3. **Domain rules split between layers** — The tag-action state guard is in the domain (good), but other validations are missing or CLI-only. E.g., nothing prevents creating duplicate tag actions (`acto do '++urgent'` twice), which causes ambiguous lookups.
 
 ## Maintainability
 
-5. **No "show single action" command** — No way to inspect one action's full state, prerequisites, and priority relations without reading `list` output and mentally correlating IDs.
+4. **No "show single action" command** — No way to inspect one action's full state, prerequisites, and priority relations without reading `list` output and mentally correlating IDs.
 
 ## Scalability
 
-6. **O(n×p) in `expandTagRelations`** — Uses `actions.find()` inside a loop over priorities. Fine at current scale, will degrade with hundreds of actions and priorities.
+5. **O(n×p) in `expandTagRelations`** — Uses `actions.find()` inside a loop over priorities. Fine at current scale, will degrade with hundreds of actions and priorities.
 
-7. **Quadratic SP decomposition** — `spDecompose` has `MAX_ITER = (n+2)² + 100` with inner loops scanning all nodes/edges. Unlikely to matter at current scale but won't scale to large graphs.
+6. **Quadratic SP decomposition** — `spDecompose` has `MAX_ITER = (n+2)² + 100` with inner loops scanning all nodes/edges. Unlikely to matter at current scale but won't scale to large graphs.

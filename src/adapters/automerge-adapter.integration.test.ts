@@ -4,6 +4,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import * as Automerge from "@automerge/automerge";
 import { AutomergeAdapter } from "./automerge-adapter.js";
+import { createAction } from "../domain/action.js";
 
 describe("AutomergeAdapter Integration", () => {
   let testDir: string;
@@ -20,22 +21,9 @@ describe("AutomergeAdapter Integration", () => {
 
   it("should persist and reload actions", () => {
     const adapter = new AutomergeAdapter(dbPath);
-    adapter.save([
-      {
-        uuid: "u1",
-        slug: "first",
-        title: "First",
-        state: "open",
-        prerequisites: [],
-      },
-      {
-        uuid: "u2",
-        slug: "second",
-        title: "Second",
-        state: "done",
-        prerequisites: [],
-      },
-    ]);
+    const done = createAction("u2", "second", "Second");
+    done.state = "done";
+    adapter.save([createAction("u1", "first", "First"), done]);
     adapter.close();
 
     const adapter2 = new AutomergeAdapter(dbPath);
@@ -56,30 +44,10 @@ describe("AutomergeAdapter Integration", () => {
   it("should handle multiple saves", () => {
     const adapter = new AutomergeAdapter(dbPath);
 
+    adapter.save([createAction("u1", "first", "First")]);
     adapter.save([
-      {
-        uuid: "u1",
-        slug: "first",
-        title: "First",
-        state: "open",
-        prerequisites: [],
-      },
-    ]);
-    adapter.save([
-      {
-        uuid: "u1",
-        slug: "first",
-        title: "First",
-        state: "open",
-        prerequisites: [],
-      },
-      {
-        uuid: "u2",
-        slug: "second",
-        title: "Second",
-        state: "open",
-        prerequisites: [],
-      },
+      createAction("u1", "first", "First"),
+      createAction("u2", "second", "Second"),
     ]);
 
     const loaded = adapter.load();
@@ -88,7 +56,6 @@ describe("AutomergeAdapter Integration", () => {
   });
 
   it("should migrate old CVCVCVC-keyed format to UUID keys", () => {
-    // Write a doc with old schema: CVCVCVC keys, no slug field
     type OldSchema = {
       actions: Record<
         string,
@@ -121,20 +88,16 @@ describe("AutomergeAdapter Integration", () => {
     const loaded = adapter.load();
     adapter.close();
 
-    // Slugs should be the old keys
     const first = loaded.find((a) => a.slug === "takapup");
     const second = loaded.find((a) => a.slug === "zebepod");
     expect(first).toBeDefined();
     expect(second).toBeDefined();
     expect(first!.state).toBe("open");
     expect(second!.state).toBe("done");
-    // UUIDs should be proper UUIDs, not the old keys
     expect(first!.uuid).not.toBe("takapup");
     expect(second!.uuid).not.toBe("zebepod");
-    // Prerequisite should reference the new UUID
     expect(second!.prerequisites[0]!.uuid).toBe(first!.uuid);
 
-    // Reload should give same UUIDs (migration persisted)
     const adapter2 = new AutomergeAdapter(dbPath);
     const reloaded = adapter2.load();
     adapter2.close();

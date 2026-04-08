@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { Action } from "./action.js";
+import { createAction } from "./action.js";
 import type { Priority } from "./priority.js";
 import {
   computeWorkOrder,
@@ -15,13 +16,9 @@ function makeAction(
   title: string,
   ...prereqUuids: string[]
 ): Action {
-  return {
-    uuid,
-    slug: uuid,
-    title,
-    state: "open",
-    prerequisites: prereqUuids.map((u) => ({ uuid: u, createdAt: 0 })),
-  };
+  const a = createAction(uuid, uuid, title);
+  a.prerequisites = prereqUuids.map((u) => ({ uuid: u, createdAt: 0 }));
+  return a;
 }
 
 describe("prio between tag actions", () => {
