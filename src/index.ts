@@ -113,10 +113,9 @@ program
   .action((title: string) => {
     const adapter = new AutomergeAdapter(dbPath());
     adapter.transact(({ actions, priorities }) => {
-      const existingSlugs = new Set(actions.map((a) => a.slug));
       actions.push({
         uuid: randomUUID(),
-        slug: generateSlug(existingSlugs),
+        slug: generateSlug((s) => actions.every((a) => a.slug !== s)),
         title,
         state: "open",
         prerequisites: [],

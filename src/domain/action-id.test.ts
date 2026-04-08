@@ -21,9 +21,9 @@ describe("generateSlug", () => {
     expect(slugs.size).toBe(50);
   });
 
-  it("avoids existing slugs", () => {
+  it("avoids rejected slugs", () => {
     const existing = new Set([generateSlug()]);
-    const slug = generateSlug(existing);
+    const slug = generateSlug((s) => !existing.has(s));
     expect(existing.has(slug)).toBe(false);
   });
 });
