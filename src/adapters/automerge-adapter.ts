@@ -2,7 +2,7 @@
 // Stores actions in an Automerge document, persisted as a single file.
 // Multi-device sync (per-device files + merge) is planned for later.
 //
-// Actions are stored as a map keyed by ID, so that concurrent edits
+// Actions are stored as a map keyed by UUID, so that concurrent edits
 // to different actions merge cleanly at the field level.
 //
 // Concurrency: uses a hard-link lock file (VSDB-inspired) for mutual
@@ -18,16 +18,18 @@ import {
   readFileSync,
   writeFileSync,
   existsSync,
+  statSync,
   linkSync,
   unlinkSync,
 } from "fs";
 import { randomUUID } from "crypto";
-import type { Action, ActionState, Prerequisite } from "../domain/action.js";
+import type { Action, ActionState } from "../domain/action.js";
 import type { Priority } from "../domain/priority.js";
 import type { StoragePort } from "../ports/storage-port.js";
 
 type PrerequisiteRecord = { actionId: string; createdAt: number };
 type ActionRecord = {
+  slug?: string;
   title: string;
   state: string;
   prerequisites: PrerequisiteRecord[];
@@ -40,6 +42,7 @@ type DocSchema = {
 
 const LOCK_SUFFIX = ".lock";
 const LOCK_TIMEOUT_MS = 30_000;
+const STALE_LOCK_MS = 5_000;
 
 const sleepBuf = new SharedArrayBuffer(4);
 const sleepArr = new Int32Array(sleepBuf);
@@ -68,6 +71,15 @@ function acquireLock(filePath: string): {
         throw e;
       }
       contended = true;
+      // Remove stale lock left by a crashed process
+      try {
+        const age = Date.now() - statSync(lockPath).mtimeMs;
+        if (age > STALE_LOCK_MS) {
+          unlinkSync(lockPath);
+        }
+      } catch {
+        // lock disappeared between check and stat/unlink
+      }
       sleep(1 + Math.floor(Math.random() * 10));
     }
   }
@@ -89,26 +101,117 @@ function loadDoc(filePath: string): Automerge.Doc<DocSchema> {
     : Automerge.from<DocSchema>({ actions: {}, priorities: [] });
 }
 
-function docToActions(doc: Automerge.Doc<DocSchema>): Action[] {
-  return Object.entries(doc.actions).map(([id, a]) => {
-    // Migration: old docs may have 'completed' boolean instead of 'state'
-    const raw = a as Record<string, unknown>;
-    const state: ActionState =
-      typeof a.state === "string"
-        ? (a.state as ActionState)
-        : raw["completed"]
-          ? "done"
-          : "open";
-    return {
-      id,
+const VALID_STATES: ReadonlySet<string> = new Set<ActionState>([
+  "open",
+  "active",
+  "done",
+  "skipped",
+]);
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+function isUuid(s: string): boolean {
+  return UUID_RE.test(s);
+}
+
+function parseState(key: string, record: ActionRecord): ActionState {
+  const raw = record as Record<string, unknown>;
+  if (typeof record.state === "string" && VALID_STATES.has(record.state)) {
+    return record.state as ActionState;
+  }
+  if (raw["completed"]) return "done";
+  if (typeof record.state === "string") {
+    console.error(
+      `Warning: action ${key} has unknown state "${record.state}", defaulting to "open"`,
+    );
+  }
+  return "open";
+}
+
+function assertNoDuplicates(actions: Action[]): void {
+  const slugs = new Map<string, string>();
+  const tagTitles = new Map<string, string>();
+  for (const a of actions) {
+    const prevSlug = slugs.get(a.slug);
+    if (prevSlug) {
+      throw new Error(
+        `Duplicate slug "${a.slug}" on actions ${prevSlug} and ${a.uuid}`,
+      );
+    }
+    slugs.set(a.slug, a.uuid);
+
+    if (/^\s*\+\+\w+\s*$/.test(a.title)) {
+      const prevTag = tagTitles.get(a.title);
+      if (prevTag) {
+        throw new Error(
+          `Duplicate tag action "${a.title}" on ${prevTag} and ${a.uuid}`,
+        );
+      }
+      tagTitles.set(a.title, a.uuid);
+    }
+  }
+}
+
+/**
+ * Convert doc to Action[]. Handles migration from old format where
+ * map keys were CVCVCVC slugs to new format where keys are UUIDs.
+ */
+function docToActions(doc: Automerge.Doc<DocSchema>): {
+  actions: Action[];
+  migrated: boolean;
+} {
+  const entries = Object.entries(doc.actions);
+  // Detect old format: keys are not UUIDs
+  const needsMigration =
+    entries.length > 0 && entries.some(([k]) => !isUuid(k));
+
+  if (!needsMigration) {
+    // New format: key is UUID, slug is stored in record
+    const actions = entries.map(([uuid, a]) => ({
+      uuid,
+      slug: a.slug ?? uuid.slice(0, 7),
       title: a.title,
-      state,
+      state: parseState(uuid, a),
       prerequisites: (a.prerequisites ?? []).map((p) => ({
-        actionId: p.actionId,
+        uuid: p.actionId,
         createdAt: p.createdAt,
       })),
-    };
-  });
+    }));
+    assertNoDuplicates(actions);
+    return { actions, migrated: false };
+  }
+
+  // Old format: key is CVCVCVC slug, no UUID stored
+  // Build old-key → new-uuid mapping
+  const keyToUuid = new Map<string, string>();
+  for (const [key] of entries) {
+    keyToUuid.set(key, isUuid(key) ? key : randomUUID());
+  }
+
+  const actions = entries.map(([key, a]) => ({
+    uuid: keyToUuid.get(key)!,
+    slug: isUuid(key) ? (a.slug ?? key.slice(0, 7)) : key,
+    title: a.title,
+    state: parseState(key, a),
+    prerequisites: (a.prerequisites ?? []).map((p) => ({
+      uuid: keyToUuid.get(p.actionId) ?? p.actionId,
+      createdAt: p.createdAt,
+    })),
+  }));
+
+  assertNoDuplicates(actions);
+  return { actions, migrated: true };
+}
+
+function migratePriorities(
+  priorities: PriorityRecord[],
+  keyToUuid: Map<string, string>,
+): Priority[] {
+  return (priorities ?? []).map((p) => ({
+    higher: keyToUuid.get(p.higher) ?? p.higher,
+    lower: keyToUuid.get(p.lower) ?? p.lower,
+    createdAt: p.createdAt,
+  }));
 }
 
 function applyActions(
@@ -116,33 +219,56 @@ function applyActions(
   actions: Action[],
 ): Automerge.Doc<DocSchema> {
   return Automerge.change(doc, (d) => {
-    const newIds = new Set(actions.map((a) => a.id));
-    for (const id of Object.keys(d.actions)) {
-      if (!newIds.has(id)) delete d.actions[id];
+    const newUuids = new Set(actions.map((a) => a.uuid));
+    for (const key of Object.keys(d.actions)) {
+      if (!newUuids.has(key)) delete d.actions[key];
     }
     for (const a of actions) {
-      if (!d.actions[a.id]) {
-        d.actions[a.id] = {
+      if (!d.actions[a.uuid]) {
+        d.actions[a.uuid] = {
+          slug: a.slug,
           title: a.title,
           state: a.state,
           prerequisites: (a.prerequisites ?? []).map((p) => ({
-            actionId: p.actionId,
+            actionId: p.uuid,
             createdAt: p.createdAt,
           })),
         };
       } else {
-        const existing = d.actions[a.id];
+        const existing = d.actions[a.uuid];
         if (existing) {
+          existing.slug = a.slug;
           existing.title = a.title;
           existing.state = a.state;
           existing.prerequisites = (a.prerequisites ?? []).map((p) => ({
-            actionId: p.actionId,
+            actionId: p.uuid,
             createdAt: p.createdAt,
           }));
         }
       }
     }
   });
+}
+
+function warnDanglingRefs(actions: Action[], priorities: Priority[]): void {
+  const uuids = new Set(actions.map((a) => a.uuid));
+  for (const a of actions) {
+    for (const p of a.prerequisites) {
+      if (!uuids.has(p.uuid)) {
+        console.error(
+          `Warning: action ${a.slug} has prerequisite referencing unknown ${p.uuid}`,
+        );
+      }
+    }
+  }
+  for (const p of priorities) {
+    if (!uuids.has(p.higher)) {
+      console.error(`Warning: priority references unknown action ${p.higher}`);
+    }
+    if (!uuids.has(p.lower)) {
+      console.error(`Warning: priority references unknown action ${p.lower}`);
+    }
+  }
 }
 
 function docToPriorities(doc: Automerge.Doc<DocSchema>): Priority[] {
@@ -179,7 +305,26 @@ export class AutomergeAdapter implements StoragePort {
   }
 
   load(): Action[] {
-    return docToActions(loadDoc(this.filePath));
+    const doc = loadDoc(this.filePath);
+    const { actions, migrated } = docToActions(doc);
+    if (migrated) {
+      // Persist migration
+      let updated = applyActions(doc, actions);
+      const oldKeys = new Map(
+        Object.keys(doc.actions).map((k) => [
+          k,
+          actions.find((a) => a.slug === k || (isUuid(k) && a.uuid === k))
+            ?.uuid ?? k,
+        ]),
+      );
+      const priorities = migratePriorities(doc.priorities ?? [], oldKeys);
+      updated = applyPriorities(updated, priorities);
+      writeFileSync(this.filePath, Automerge.save(updated));
+      warnDanglingRefs(actions, priorities);
+    } else {
+      warnDanglingRefs(actions, docToPriorities(doc));
+    }
+    return actions;
   }
 
   save(actions: Action[]): void {
@@ -205,8 +350,9 @@ export class AutomergeAdapter implements StoragePort {
     if (contended) this.contentionCount++;
     try {
       const doc = loadDoc(this.filePath);
-      const actions = docToActions(doc);
+      const { actions } = docToActions(doc);
       const priorities = docToPriorities(doc);
+      warnDanglingRefs(actions, priorities);
       const result = fn({ actions, priorities });
       let updated = applyActions(doc, result.actions);
       updated = applyPriorities(updated, result.priorities);

@@ -1,19 +1,19 @@
 import { describe, it, expect } from "vitest";
 import type { Action, ActionState } from "./action.js";
-import { canTransition, transitionAction } from "./action.js";
+import {
+  canTransition,
+  transitionAction,
+  createAction,
+  validateNewAction,
+} from "./action.js";
 
 describe("Action", () => {
   it("should create an action with title and state", () => {
-    const action: Action = {
-      id: "test-1",
-      title: "Test action",
-      state: "open",
-      prerequisites: [],
-    };
+    const action = createAction("u1", "test-1", "Test action");
 
     expect(action.title).toBe("Test action");
     expect(action.state).toBe("open");
-    expect(action.id).toBe("test-1");
+    expect(action.slug).toBe("test-1");
   });
 });
 
@@ -51,7 +51,9 @@ describe("canTransition", () => {
 
 describe("transitionAction", () => {
   function makeAction(state: ActionState, title = "test"): Action {
-    return { id: "t", title, state, prerequisites: [] };
+    const a = createAction("u1", "t", title);
+    a.state = state;
+    return a;
   }
 
   it("mutates state on valid transition", () => {
@@ -89,4 +91,22 @@ describe("transitionAction", () => {
       expect(a.state).toBe("open");
     },
   );
+});
+
+describe("validateNewAction", () => {
+  it("allows duplicate non-tag titles", () => {
+    const existing = [createAction("u1", "s1", "Fix bug")];
+    expect(() => validateNewAction("Fix bug", existing)).not.toThrow();
+  });
+
+  it("allows first tag action", () => {
+    expect(() => validateNewAction("++urgent", [])).not.toThrow();
+  });
+
+  it("rejects duplicate tag action", () => {
+    const existing = [createAction("u1", "s1", "++urgent")];
+    expect(() => validateNewAction("++urgent", existing)).toThrow(
+      'Tag action "++urgent" already exists',
+    );
+  });
 });

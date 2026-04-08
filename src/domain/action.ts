@@ -3,11 +3,12 @@
 import { isTagTitle } from "./tags.js";
 
 export interface Prerequisite {
-  actionId: string;
+  uuid: string;
   createdAt: number; // milliseconds since epoch
 }
 
-export type ActionState = "open" | "active" | "done" | "skipped";
+export const ACTION_STATES = ["open", "active", "done", "skipped"] as const;
+export type ActionState = (typeof ACTION_STATES)[number];
 
 const validTransitions: Record<ActionState, ActionState[]> = {
   open: ["active", "done", "skipped"],
@@ -31,8 +32,25 @@ export function transitionAction(action: Action, to: ActionState): void {
 }
 
 export interface Action {
-  id: string;
+  uuid: string;
+  slug: string;
   title: string;
   state: ActionState;
   prerequisites: Prerequisite[];
+}
+
+/** Create a new action with state "open" and no prerequisites. */
+export function createAction(
+  uuid: string,
+  slug: string,
+  title: string,
+): Action {
+  return { uuid, slug, title, state: "open", prerequisites: [] };
+}
+
+/** Validate that a new action can be added to the existing set. */
+export function validateNewAction(title: string, existing: Action[]): void {
+  if (isTagTitle(title) && existing.some((a) => a.title === title)) {
+    throw new Error(`Tag action "${title}" already exists`);
+  }
 }

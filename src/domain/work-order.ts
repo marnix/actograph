@@ -11,7 +11,7 @@ import type { Priority } from "./priority.js";
 import { parseTags, isTagTitle, tagName } from "./tags.js";
 
 interface ActionSummary {
-  id: string;
+  uuid: string;
   title: string;
   prerequisites: Prerequisite[];
 }
@@ -24,7 +24,7 @@ interface ActionSummary {
  * - If tag action A has priority over tag action B, then every action tagged
  *   with A's tag gets priority over every action tagged with B's tag.
  *
- * Returns new virtual prerequisites (keyed by action id) and virtual priorities
+ * Returns new virtual prerequisites (keyed by action uuid) and virtual priorities
  * to be mixed into the work order computation. Does not mutate inputs.
  */
 export function expandTagRelations(
@@ -38,13 +38,13 @@ export function expandTagRelations(
     if (tn) tagActionMap.set(tn, a);
   }
 
-  // Build tag→member action ids (non-tag actions that mention the tag)
+  // Build tag→member action uuids (non-tag actions that mention the tag)
   const tagMembers = new Map<string, string[]>();
   for (const a of actions) {
     if (isTagTitle(a.title)) continue;
     for (const t of parseTags(a.title)) {
       if (!tagMembers.has(t)) tagMembers.set(t, []);
-      tagMembers.get(t)!.push(a.id);
+      tagMembers.get(t)!.push(a.uuid);
     }
   }
 
@@ -54,10 +54,10 @@ export function expandTagRelations(
     const members = tagMembers.get(tn);
     if (!members) continue;
     for (const prereq of tagAction.prerequisites) {
-      for (const memberId of members) {
-        if (memberId === prereq.actionId) continue; // skip self
-        if (!extraPrereqs.has(memberId)) extraPrereqs.set(memberId, []);
-        extraPrereqs.get(memberId)!.push(prereq);
+      for (const memberUuid of members) {
+        if (memberUuid === prereq.uuid) continue; // skip self
+        if (!extraPrereqs.has(memberUuid)) extraPrereqs.set(memberUuid, []);
+        extraPrereqs.get(memberUuid)!.push(prereq);
       }
     }
   }
@@ -65,8 +65,8 @@ export function expandTagRelations(
   // Inherit priorities between tag groups
   const extraPrios: Priority[] = [];
   for (const p of priorities) {
-    const higherAction = actions.find((a) => a.id === p.higher);
-    const lowerAction = actions.find((a) => a.id === p.lower);
+    const higherAction = actions.find((a) => a.uuid === p.higher);
+    const lowerAction = actions.find((a) => a.uuid === p.lower);
     if (!higherAction || !lowerAction) continue;
     const higherTag = tagName(higherAction.title);
     const lowerTag = tagName(lowerAction.title);
@@ -112,26 +112,26 @@ export function computeWorkOrder(
   allActions?: ActionSummary[],
 ): Graph {
   const source = allActions ?? actions;
-  const sourceIds = new Set(source.map((a) => a.id));
+  const sourceUuids = new Set(source.map((a) => a.uuid));
 
   // Expand tag inheritance into virtual edges
   const { extraPrereqs, extraPrios } = expandTagRelations(source, priorities);
 
   const full = new Graph({ type: "directed", allowSelfLoops: false });
-  for (const id of sourceIds) full.addNode(id);
+  for (const uuid of sourceUuids) full.addNode(uuid);
 
   // Add prerequisite edges: required action → dependent action
   for (const action of source) {
     const allPrereqs = [
       ...action.prerequisites,
-      ...(extraPrereqs.get(action.id) ?? []),
+      ...(extraPrereqs.get(action.uuid) ?? []),
     ];
     for (const prereq of allPrereqs) {
       if (
-        sourceIds.has(prereq.actionId) &&
-        !full.hasEdge(prereq.actionId, action.id)
+        sourceUuids.has(prereq.uuid) &&
+        !full.hasEdge(prereq.uuid, action.uuid)
       ) {
-        full.addEdge(prereq.actionId, action.id);
+        full.addEdge(prereq.uuid, action.uuid);
       }
     }
   }
@@ -139,7 +139,7 @@ export function computeWorkOrder(
   // Add priority edges oldest-first, skipping any that would create a cycle
   const allPrios = [...priorities, ...extraPrios];
   const sorted = allPrios
-    .filter((p) => sourceIds.has(p.higher) && sourceIds.has(p.lower))
+    .filter((p) => sourceUuids.has(p.higher) && sourceUuids.has(p.lower))
     .sort((a, b) => a.createdAt - b.createdAt);
 
   for (const p of sorted) {
@@ -155,17 +155,17 @@ export function computeWorkOrder(
 
   // Contract hidden nodes: for each hidden node, connect its
   // in-neighbors directly to its out-neighbors, then drop it.
-  const visibleIds = new Set(actions.map((a) => a.id));
-  for (const id of sourceIds) {
-    if (visibleIds.has(id)) continue;
-    for (const src of full.inNeighbors(id)) {
-      for (const tgt of full.outNeighbors(id)) {
+  const visibleUuids = new Set(actions.map((a) => a.uuid));
+  for (const uuid of sourceUuids) {
+    if (visibleUuids.has(uuid)) continue;
+    for (const src of full.inNeighbors(uuid)) {
+      for (const tgt of full.outNeighbors(uuid)) {
         if (src !== tgt && !full.hasEdge(src, tgt)) {
           full.addEdge(src, tgt);
         }
       }
     }
-    full.dropNode(id);
+    full.dropNode(uuid);
   }
 
   return full;
@@ -174,58 +174,63 @@ export function computeWorkOrder(
 export function addPrerequisite(
   actions: Action[],
   priorities: Priority[],
-  fromId: string,
-  toId: string,
+  fromUuid: string,
+  toUuid: string,
 ): void {
-  const target = actions.find((a) => a.id === toId);
-  if (!target) throw new Error(`Action not found: ${toId}`);
-  if (target.prerequisites.some((p) => p.actionId === fromId)) return;
+  const target = actions.find((a) => a.uuid === toUuid);
+  if (!target) throw new Error(`Action not found: ${toUuid}`);
+  if (target.prerequisites.some((p) => p.uuid === fromUuid)) return;
   const graph = computeWorkOrder(actions, priorities);
-  if (wouldCreateCycle(graph, fromId, toId)) {
+  if (wouldCreateCycle(graph, fromUuid, toUuid)) {
     throw new Error(
-      `Cannot add prerequisite: ${fromId} → ${toId} would create a cycle`,
+      `Cannot add prerequisite: ${fromUuid} → ${toUuid} would create a cycle`,
     );
   }
-  target.prerequisites.push({ actionId: fromId, createdAt: Date.now() });
+  target.prerequisites.push({ uuid: fromUuid, createdAt: Date.now() });
 }
 
 export function addPriority(
   actions: Action[],
   priorities: Priority[],
-  higherId: string,
-  lowerId: string,
+  higherUuid: string,
+  lowerUuid: string,
 ): void {
-  if (priorities.some((p) => p.higher === higherId && p.lower === lowerId))
+  if (priorities.some((p) => p.higher === higherUuid && p.lower === lowerUuid))
     return;
   const graph = computeWorkOrder(actions, priorities);
-  if (wouldCreateCycle(graph, higherId, lowerId)) {
+  if (wouldCreateCycle(graph, higherUuid, lowerUuid)) {
     throw new Error(
-      `Cannot add priority: ${higherId} → ${lowerId} would create a cycle`,
+      `Cannot add priority: ${higherUuid} → ${lowerUuid} would create a cycle`,
     );
   }
-  priorities.push({ higher: higherId, lower: lowerId, createdAt: Date.now() });
+  priorities.push({
+    higher: higherUuid,
+    lower: lowerUuid,
+    createdAt: Date.now(),
+  });
 }
 
 export function removePrerequisite(
   actions: Action[],
-  fromId: string,
-  toId: string,
+  fromUuid: string,
+  toUuid: string,
 ): void {
-  const target = actions.find((a) => a.id === toId);
-  if (!target) throw new Error(`Action not found: ${toId}`);
-  const idx = target.prerequisites.findIndex((p) => p.actionId === fromId);
-  if (idx === -1) throw new Error(`No prerequisite ${fromId} on ${toId}`);
+  const target = actions.find((a) => a.uuid === toUuid);
+  if (!target) throw new Error(`Action not found: ${toUuid}`);
+  const idx = target.prerequisites.findIndex((p) => p.uuid === fromUuid);
+  if (idx === -1) throw new Error(`No prerequisite ${fromUuid} on ${toUuid}`);
   target.prerequisites.splice(idx, 1);
 }
 
 export function removePriority(
   priorities: Priority[],
-  higherId: string,
-  lowerId: string,
+  higherUuid: string,
+  lowerUuid: string,
 ): void {
   const idx = priorities.findIndex(
-    (p) => p.higher === higherId && p.lower === lowerId,
+    (p) => p.higher === higherUuid && p.lower === lowerUuid,
   );
-  if (idx === -1) throw new Error(`No priority ${higherId} over ${lowerId}`);
+  if (idx === -1)
+    throw new Error(`No priority ${higherUuid} over ${lowerUuid}`);
   priorities.splice(idx, 1);
 }

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { Action } from "../domain/action.js";
+import { createAction } from "../domain/action.js";
 import type { Priority } from "../domain/priority.js";
 import {
   buildAnnotations,
@@ -8,17 +9,15 @@ import {
 } from "./list-format.js";
 
 function makeAction(
-  id: string,
+  uuid: string,
   title: string,
   state: "open" | "active" | "done" | "skipped" = "open",
-  prereqIds: string[] = [],
+  prereqUuids: string[] = [],
 ): Action {
-  return {
-    id,
-    title,
-    state,
-    prerequisites: prereqIds.map((actionId) => ({ actionId, createdAt: 0 })),
-  };
+  const a = createAction(uuid, uuid, title);
+  a.state = state;
+  a.prerequisites = prereqUuids.map((u) => ({ uuid: u, createdAt: 0 }));
+  return a;
 }
 
 describe("buildAnnotations", () => {
@@ -64,66 +63,87 @@ describe("buildAnnotations", () => {
 });
 
 describe("formatActionLabel", () => {
-  const empty = { reqPreds: new Map(), prioPreds: new Map() };
+  const empty = {
+    reqPreds: new Map(),
+    prioPreds: new Map(),
+    slugByUuid: new Map(),
+  };
 
   it("shows open state", () => {
-    expect(formatActionLabel(makeAction("abc", "Do it"), empty)).toBe(
-      "[ ] Do it  (abc)",
+    expect(formatActionLabel(makeAction("u1", "Do it"), empty)).toBe(
+      "[ ] Do it  (u1)",
     );
   });
 
   it("shows active state", () => {
-    expect(formatActionLabel(makeAction("abc", "Do it", "active"), empty)).toBe(
-      "[▶] Do it  (abc)",
+    expect(formatActionLabel(makeAction("u1", "Do it", "active"), empty)).toBe(
+      "[▶] Do it  (u1)",
     );
   });
 
   it("shows done state", () => {
-    expect(formatActionLabel(makeAction("abc", "Do it", "done"), empty)).toBe(
-      "[✓] Do it  (abc)",
+    expect(formatActionLabel(makeAction("u1", "Do it", "done"), empty)).toBe(
+      "[✓] Do it  (u1)",
     );
   });
 
   it("shows skipped state", () => {
-    expect(
-      formatActionLabel(makeAction("abc", "Do it", "skipped"), empty),
-    ).toBe("[–] Do it  (abc)");
+    expect(formatActionLabel(makeAction("u1", "Do it", "skipped"), empty)).toBe(
+      "[–] Do it  (u1)",
+    );
   });
 
-  it("appends req annotation", () => {
+  it("appends req annotation with slug", () => {
     const ann = {
-      reqPreds: new Map([["abc", new Set(["def"])]]),
+      reqPreds: new Map([["u1", new Set(["u2"])]]),
       prioPreds: new Map(),
+      slugByUuid: new Map([
+        ["u1", "u1"],
+        ["u2", "u2"],
+      ]),
     };
-    expect(formatActionLabel(makeAction("abc", "Do it"), ann)).toBe(
-      "[ ] Do it  (abc)  ← req:def",
+    expect(formatActionLabel(makeAction("u1", "Do it"), ann)).toBe(
+      "[ ] Do it  (u1)  ← req:u2",
     );
   });
 
   it("appends req and prio annotations", () => {
     const ann = {
-      reqPreds: new Map([["abc", new Set(["def"])]]),
-      prioPreds: new Map([["abc", new Set(["ghi"])]]),
+      reqPreds: new Map([["u1", new Set(["u2"])]]),
+      prioPreds: new Map([["u1", new Set(["u3"])]]),
+      slugByUuid: new Map([
+        ["u1", "u1"],
+        ["u2", "u2"],
+        ["u3", "u3"],
+      ]),
     };
-    expect(formatActionLabel(makeAction("abc", "Do it"), ann)).toBe(
-      "[ ] Do it  (abc)  ← req:def, prio:ghi",
+    expect(formatActionLabel(makeAction("u1", "Do it"), ann)).toBe(
+      "[ ] Do it  (u1)  ← req:u2, prio:u3",
     );
   });
 });
 
 describe("formatTagLabel", () => {
-  const empty = { reqPreds: new Map(), prioPreds: new Map() };
+  const empty = {
+    reqPreds: new Map(),
+    prioPreds: new Map(),
+    slugByUuid: new Map(),
+  };
 
-  it("shows tag title and id", () => {
+  it("shows tag title and slug", () => {
     expect(formatTagLabel(makeAction("t1", "++urgent"), empty)).toBe(
       "++urgent  (t1)",
     );
   });
 
-  it("appends prio annotation", () => {
+  it("appends prio annotation with slug", () => {
     const ann = {
       reqPreds: new Map(),
       prioPreds: new Map([["t2", new Set(["t1"])]]),
+      slugByUuid: new Map([
+        ["t1", "t1"],
+        ["t2", "t2"],
+      ]),
     };
     expect(formatTagLabel(makeAction("t2", "++later"), ann)).toBe(
       "++later  (t2)  ← prio:t1",

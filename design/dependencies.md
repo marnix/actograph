@@ -12,12 +12,13 @@ Stored as a list on each action:
 
 ```typescript
 interface Prerequisite {
-  actionId: string; // the required action's ID
+  uuid: string; // the required action's UUID
   createdAt: number; // milliseconds since epoch (Date.now())
 }
 
 interface Action {
-  id: string;
+  uuid: string;
+  slug: string; // human-friendly CVCVCVC identifier
   title: string;
   state: ActionState; // "open" | "active" | "done" | "skipped"
   prerequisites: Prerequisite[];
@@ -32,13 +33,13 @@ Priorities are not owned by either action. They are an external assertion about 
 
 ```typescript
 interface Priority {
-  higher: string; // action ID
-  lower: string; // action ID
+  higher: string; // action UUID
+  lower: string; // action UUID
   createdAt: number; // milliseconds since epoch (Date.now())
 }
 
 interface ActographDoc {
-  actions: Record<string, Action>;
+  actions: Record<string, Action>; // keyed by UUID
   priorities: Priority[];
 }
 ```

@@ -1,7 +1,8 @@
 // index.ts - CLI entry point
 
 import { Command } from "commander";
-import { generateActionId } from "./domain/action-id.js";
+import { randomUUID } from "crypto";
+import { generateSlug } from "./domain/action-id.js";
 import { findAction } from "./cli/find-action.js";
 import {
   buildAnnotations,
@@ -9,7 +10,11 @@ import {
   formatTagLabel,
 } from "./cli/list-format.js";
 import type { ActionState } from "./domain/action.js";
-import { transitionAction } from "./domain/action.js";
+import {
+  transitionAction,
+  createAction,
+  validateNewAction,
+} from "./domain/action.js";
 import { isTagTitle } from "./domain/tags.js";
 import {
   computeWorkOrder,
@@ -70,10 +75,10 @@ program
       const annotations = buildAnnotations(tagActions, tagActions, priorities);
       const graph = computeWorkOrder(tagActions, priorities);
       const sp = spDecompose(graph);
-      const tagMap = new Map(tagActions.map((a) => [a.id, a]));
-      const output = renderSP(sp, (id) => {
-        const a = tagMap.get(id);
-        return a ? formatTagLabel(a, annotations) : id;
+      const tagMap = new Map(tagActions.map((a) => [a.uuid, a]));
+      const output = renderSP(sp, (uuid) => {
+        const a = tagMap.get(uuid);
+        return a ? formatTagLabel(a, annotations) : uuid;
       });
       console.log(output);
       return;
@@ -97,10 +102,10 @@ program
       opts.all ? undefined : actions,
     );
     const sp = spDecompose(graph);
-    const actionMap = new Map(visible.map((a) => [a.id, a]));
-    const output = renderSP(sp, (id) => {
-      const a = actionMap.get(id);
-      return a ? formatActionLabel(a, annotations) : id;
+    const actionMap = new Map(visible.map((a) => [a.uuid, a]));
+    const output = renderSP(sp, (uuid) => {
+      const a = actionMap.get(uuid);
+      return a ? formatActionLabel(a, annotations) : uuid;
     });
     console.log(output);
   });
@@ -112,12 +117,19 @@ program
   .action((title: string) => {
     const adapter = new AutomergeAdapter(dbPath());
     adapter.transact(({ actions, priorities }) => {
-      actions.push({
-        id: generateActionId(),
-        title,
-        state: "open",
-        prerequisites: [],
-      });
+      try {
+        validateNewAction(title, actions);
+      } catch (e) {
+        console.error((e as Error).message);
+        process.exit(1);
+      }
+      actions.push(
+        createAction(
+          randomUUID(),
+          generateSlug((s) => actions.every((a) => a.slug !== s)),
+          title,
+        ),
+      );
       console.log(`Added: "${title}" (${actions.length} actions total)`);
       return { actions, priorities };
     });
@@ -135,12 +147,12 @@ function stateCommand(
   program
     .command(name)
     .description(description)
-    .argument("<id>", "Action ID (or prefix)")
-    .action((idPrefix: string) => {
+    .argument("<slug>", "Action slug (or prefix)")
+    .action((slugPrefix: string) => {
       const adapter = new AutomergeAdapter(dbPath());
       adapter.transact(({ actions, priorities }) => {
         try {
-          const action = findAction(actions, idPrefix);
+          const action = findAction(actions, slugPrefix);
           transitionAction(action, newState);
           console.log(`${label}: "${action.title}"`);
         } catch (e) {
@@ -166,18 +178,18 @@ program
   .description(
     "Set prerequisites: acto req A B C means A is required by B, B is required by C",
   )
-  .argument("<ids...>", "Action IDs (or prefixes) in work order")
-  .action((ids: string[]) => {
-    if (ids.length < 2) {
-      console.error("Need at least two action IDs");
+  .argument("<slugs...>", "Action slugs (or prefixes) in work order")
+  .action((slugs: string[]) => {
+    if (slugs.length < 2) {
+      console.error("Need at least two action slugs");
       process.exit(1);
     }
     const adapter = new AutomergeAdapter(dbPath());
     adapter.transact(({ actions, priorities }) => {
       try {
-        const resolved = ids.map((prefix) => findAction(actions, prefix));
+        const resolved = slugs.map((prefix) => findAction(actions, prefix));
         resolved.reduce((prev, curr) => {
-          addPrerequisite(actions, priorities, prev.id, curr.id);
+          addPrerequisite(actions, priorities, prev.uuid, curr.uuid);
           return curr;
         });
       } catch (e) {
@@ -195,18 +207,18 @@ program
   .description(
     "Set priorities: acto prio A B C means A has priority over B, B has priority over C",
   )
-  .argument("<ids...>", "Action IDs (or prefixes) in priority order")
-  .action((ids: string[]) => {
-    if (ids.length < 2) {
-      console.error("Need at least two action IDs");
+  .argument("<slugs...>", "Action slugs (or prefixes) in priority order")
+  .action((slugs: string[]) => {
+    if (slugs.length < 2) {
+      console.error("Need at least two action slugs");
       process.exit(1);
     }
     const adapter = new AutomergeAdapter(dbPath());
     adapter.transact(({ actions, priorities }) => {
       try {
-        const resolved = ids.map((prefix) => findAction(actions, prefix));
+        const resolved = slugs.map((prefix) => findAction(actions, prefix));
         resolved.reduce((prev, curr) => {
-          addPriority(actions, priorities, prev.id, curr.id);
+          addPriority(actions, priorities, prev.uuid, curr.uuid);
           return curr;
         });
       } catch (e) {
@@ -222,18 +234,18 @@ program
 program
   .command("unreq")
   .description("Remove prerequisites: acto unreq A B C removes A→B and B→C")
-  .argument("<ids...>", "Action IDs (or prefixes) in work order")
-  .action((ids: string[]) => {
-    if (ids.length < 2) {
-      console.error("Need at least two action IDs");
+  .argument("<slugs...>", "Action slugs (or prefixes) in work order")
+  .action((slugs: string[]) => {
+    if (slugs.length < 2) {
+      console.error("Need at least two action slugs");
       process.exit(1);
     }
     const adapter = new AutomergeAdapter(dbPath());
     adapter.transact(({ actions, priorities }) => {
       try {
-        const resolved = ids.map((prefix) => findAction(actions, prefix));
+        const resolved = slugs.map((prefix) => findAction(actions, prefix));
         resolved.reduce((prev, curr) => {
-          removePrerequisite(actions, prev.id, curr.id);
+          removePrerequisite(actions, prev.uuid, curr.uuid);
           return curr;
         });
       } catch (e) {
@@ -249,18 +261,18 @@ program
 program
   .command("unprio")
   .description("Remove priorities: acto unprio A B C removes A>B and B>C")
-  .argument("<ids...>", "Action IDs (or prefixes) in priority order")
-  .action((ids: string[]) => {
-    if (ids.length < 2) {
-      console.error("Need at least two action IDs");
+  .argument("<slugs...>", "Action slugs (or prefixes) in priority order")
+  .action((slugs: string[]) => {
+    if (slugs.length < 2) {
+      console.error("Need at least two action slugs");
       process.exit(1);
     }
     const adapter = new AutomergeAdapter(dbPath());
     adapter.transact(({ actions, priorities }) => {
       try {
-        const resolved = ids.map((prefix) => findAction(actions, prefix));
+        const resolved = slugs.map((prefix) => findAction(actions, prefix));
         resolved.reduce((prev, curr) => {
-          removePriority(priorities, prev.id, curr.id);
+          removePriority(priorities, prev.uuid, curr.uuid);
           return curr;
         });
       } catch (e) {

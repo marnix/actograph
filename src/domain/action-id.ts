@@ -56,10 +56,12 @@ function containsProfanity(id: string): boolean {
   return profaneWords.some((word) => id.includes(word));
 }
 
-export function generateActionId(): string {
-  let id: string;
+export function generateSlug(
+  acceptable: (slug: string) => boolean = () => true,
+): string {
+  let slug: string;
   do {
-    id = randomCV();
-  } while (containsProfanity(id));
-  return id;
+    slug = randomCV();
+  } while (containsProfanity(slug) || !acceptable(slug));
+  return slug;
 }
