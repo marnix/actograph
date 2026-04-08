@@ -7,7 +7,8 @@ export interface Prerequisite {
   createdAt: number; // milliseconds since epoch
 }
 
-export type ActionState = "open" | "active" | "done" | "skipped";
+export const ACTION_STATES = ["open", "active", "done", "skipped"] as const;
+export type ActionState = (typeof ACTION_STATES)[number];
 
 const validTransitions: Record<ActionState, ActionState[]> = {
   open: ["active", "done", "skipped"],

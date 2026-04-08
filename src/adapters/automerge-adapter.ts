@@ -89,16 +89,30 @@ function loadDoc(filePath: string): Automerge.Doc<DocSchema> {
     : Automerge.from<DocSchema>({ actions: {}, priorities: [] });
 }
 
+const VALID_STATES: ReadonlySet<string> = new Set<ActionState>([
+  "open",
+  "active",
+  "done",
+  "skipped",
+]);
+
 function docToActions(doc: Automerge.Doc<DocSchema>): Action[] {
   return Object.entries(doc.actions).map(([id, a]) => {
     // Migration: old docs may have 'completed' boolean instead of 'state'
     const raw = a as Record<string, unknown>;
-    const state: ActionState =
-      typeof a.state === "string"
-        ? (a.state as ActionState)
-        : raw["completed"]
-          ? "done"
-          : "open";
+    let state: ActionState;
+    if (typeof a.state === "string" && VALID_STATES.has(a.state)) {
+      state = a.state as ActionState;
+    } else if (raw["completed"]) {
+      state = "done";
+    } else {
+      if (typeof a.state === "string") {
+        console.error(
+          `Warning: action ${id} has unknown state "${a.state}", defaulting to "open"`,
+        );
+      }
+      state = "open";
+    }
     return {
       id,
       title: a.title,
