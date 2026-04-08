@@ -117,6 +117,19 @@ function parseState(key: string, record: ActionRecord): ActionState {
   return "open";
 }
 
+function assertUniqueSlugs(actions: Action[]): void {
+  const seen = new Map<string, string>();
+  for (const a of actions) {
+    const prev = seen.get(a.slug);
+    if (prev) {
+      throw new Error(
+        `Duplicate slug "${a.slug}" on actions ${prev} and ${a.uuid}`,
+      );
+    }
+    seen.set(a.slug, a.uuid);
+  }
+}
+
 /**
  * Convert doc to Action[]. Handles migration from old format where
  * map keys were CVCVCVC slugs to new format where keys are UUIDs.
@@ -142,6 +155,7 @@ function docToActions(doc: Automerge.Doc<DocSchema>): {
         createdAt: p.createdAt,
       })),
     }));
+    assertUniqueSlugs(actions);
     return { actions, migrated: false };
   }
 
@@ -163,6 +177,7 @@ function docToActions(doc: Automerge.Doc<DocSchema>): {
     })),
   }));
 
+  assertUniqueSlugs(actions);
   return { actions, migrated: true };
 }
 
