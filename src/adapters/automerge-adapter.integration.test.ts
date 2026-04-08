@@ -21,8 +21,20 @@ describe("AutomergeAdapter Integration", () => {
   it("should persist and reload actions", () => {
     const adapter = new AutomergeAdapter(dbPath);
     adapter.save([
-      { id: "1", title: "First", state: "open", prerequisites: [] },
-      { id: "2", title: "Second", state: "done", prerequisites: [] },
+      {
+        uuid: "u1",
+        slug: "first",
+        title: "First",
+        state: "open",
+        prerequisites: [],
+      },
+      {
+        uuid: "u2",
+        slug: "second",
+        title: "Second",
+        state: "done",
+        prerequisites: [],
+      },
     ]);
     adapter.close();
 
@@ -45,11 +57,29 @@ describe("AutomergeAdapter Integration", () => {
     const adapter = new AutomergeAdapter(dbPath);
 
     adapter.save([
-      { id: "1", title: "First", state: "open", prerequisites: [] },
+      {
+        uuid: "u1",
+        slug: "first",
+        title: "First",
+        state: "open",
+        prerequisites: [],
+      },
     ]);
     adapter.save([
-      { id: "1", title: "First", state: "open", prerequisites: [] },
-      { id: "2", title: "Second", state: "open", prerequisites: [] },
+      {
+        uuid: "u1",
+        slug: "first",
+        title: "First",
+        state: "open",
+        prerequisites: [],
+      },
+      {
+        uuid: "u2",
+        slug: "second",
+        title: "Second",
+        state: "open",
+        prerequisites: [],
+      },
     ]);
 
     const loaded = adapter.load();
@@ -57,8 +87,62 @@ describe("AutomergeAdapter Integration", () => {
     adapter.close();
   });
 
+  it("should migrate old CVCVCVC-keyed format to UUID keys", () => {
+    // Write a doc with old schema: CVCVCVC keys, no slug field
+    type OldSchema = {
+      actions: Record<
+        string,
+        {
+          title: string;
+          state: string;
+          prerequisites: { actionId: string; createdAt: number }[];
+        }
+      >;
+      priorities: { higher: string; lower: string; createdAt: number }[];
+    };
+    const doc = Automerge.from<OldSchema>({
+      actions: {
+        takapup: {
+          title: "First",
+          state: "open",
+          prerequisites: [],
+        },
+        zebepod: {
+          title: "Second",
+          state: "done",
+          prerequisites: [{ actionId: "takapup", createdAt: 0 }],
+        },
+      },
+      priorities: [{ higher: "takapup", lower: "zebepod", createdAt: 0 }],
+    });
+    writeFileSync(dbPath, Automerge.save(doc));
+
+    const adapter = new AutomergeAdapter(dbPath);
+    const loaded = adapter.load();
+    adapter.close();
+
+    // Slugs should be the old keys
+    const first = loaded.find((a) => a.slug === "takapup");
+    const second = loaded.find((a) => a.slug === "zebepod");
+    expect(first).toBeDefined();
+    expect(second).toBeDefined();
+    expect(first!.state).toBe("open");
+    expect(second!.state).toBe("done");
+    // UUIDs should be proper UUIDs, not the old keys
+    expect(first!.uuid).not.toBe("takapup");
+    expect(second!.uuid).not.toBe("zebepod");
+    // Prerequisite should reference the new UUID
+    expect(second!.prerequisites[0]!.uuid).toBe(first!.uuid);
+
+    // Reload should give same UUIDs (migration persisted)
+    const adapter2 = new AutomergeAdapter(dbPath);
+    const reloaded = adapter2.load();
+    adapter2.close();
+    const first2 = reloaded.find((a) => a.slug === "takapup");
+    expect(first2!.uuid).toBe(first!.uuid);
+  });
+
   it("should migrate old 'completed' boolean to 'state'", () => {
-    // Write a doc with the old schema (completed: boolean)
     type OldSchema = {
       actions: Record<
         string,
@@ -73,13 +157,12 @@ describe("AutomergeAdapter Integration", () => {
     });
     writeFileSync(dbPath, Automerge.save(doc));
 
-    // Read with current adapter — should migrate to state
     const adapter = new AutomergeAdapter(dbPath);
     const loaded = adapter.load();
     adapter.close();
 
-    const open = loaded.find((a) => a.id === "a1");
-    const done = loaded.find((a) => a.id === "a2");
+    const open = loaded.find((a) => a.slug === "a1");
+    const done = loaded.find((a) => a.slug === "a2");
     expect(open?.state).toBe("open");
     expect(done?.state).toBe("done");
   });

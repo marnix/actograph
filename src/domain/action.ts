@@ -3,7 +3,7 @@
 import { isTagTitle } from "./tags.js";
 
 export interface Prerequisite {
-  actionId: string;
+  uuid: string;
   createdAt: number; // milliseconds since epoch
 }
 
@@ -32,7 +32,8 @@ export function transitionAction(action: Action, to: ActionState): void {
 }
 
 export interface Action {
-  id: string;
+  uuid: string;
+  slug: string;
   title: string;
   state: ActionState;
   prerequisites: Prerequisite[];

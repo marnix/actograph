@@ -5,7 +5,8 @@ import { canTransition, transitionAction } from "./action.js";
 describe("Action", () => {
   it("should create an action with title and state", () => {
     const action: Action = {
-      id: "test-1",
+      uuid: "u1",
+      slug: "test-1",
       title: "Test action",
       state: "open",
       prerequisites: [],
@@ -13,7 +14,7 @@ describe("Action", () => {
 
     expect(action.title).toBe("Test action");
     expect(action.state).toBe("open");
-    expect(action.id).toBe("test-1");
+    expect(action.slug).toBe("test-1");
   });
 });
 
@@ -51,7 +52,7 @@ describe("canTransition", () => {
 
 describe("transitionAction", () => {
   function makeAction(state: ActionState, title = "test"): Action {
-    return { id: "t", title, state, prerequisites: [] };
+    return { uuid: "u1", slug: "t", title, state, prerequisites: [] };
   }
 
   it("mutates state on valid transition", () => {

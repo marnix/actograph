@@ -2,21 +2,21 @@ import { describe, it, expect } from "vitest";
 import { findAction } from "./find-action.js";
 
 const actions = [
-  { id: "takapup", title: "Fix login" },
-  { id: "takelop", title: "Fix logout" },
-  { id: "zebepod", title: "Refactor" },
-  { id: "tag1", title: "++urgent" },
-  { id: "tag2", title: "++urgent" },
-  { id: "tag3", title: "++backlog" },
+  { slug: "takapup", title: "Fix login" },
+  { slug: "takelop", title: "Fix logout" },
+  { slug: "zebepod", title: "Refactor" },
+  { slug: "tag1slu", title: "++urgent" },
+  { slug: "tag2slu", title: "++urgent" },
+  { slug: "tag3slu", title: "++backlog" },
 ];
 
 describe("findAction", () => {
-  it("finds by exact ID", () => {
-    expect(findAction(actions, "zebepod").id).toBe("zebepod");
+  it("finds by exact slug", () => {
+    expect(findAction(actions, "zebepod").slug).toBe("zebepod");
   });
 
   it("finds by unique prefix", () => {
-    expect(findAction(actions, "zeb").id).toBe("zebepod");
+    expect(findAction(actions, "zeb").slug).toBe("zebepod");
   });
 
   it("throws on ambiguous prefix", () => {
@@ -32,17 +32,17 @@ describe("findAction", () => {
   });
 
   it("finds unique tag by title", () => {
-    expect(findAction(actions, "++backlog").id).toBe("tag3");
+    expect(findAction(actions, "++backlog").slug).toBe("tag3slu");
   });
 
   it("throws on ambiguous tag title", () => {
     expect(() => findAction(actions, "++urgent")).toThrow(
-      'Ambiguous tag "++urgent": matches tag1, tag2',
+      'Ambiguous tag "++urgent": matches tag1slu, tag2slu',
     );
   });
 
-  it("falls through to ID prefix when tag title not found", () => {
-    const items = [{ id: "++nope", title: "something" }];
-    expect(findAction(items, "++nope").id).toBe("++nope");
+  it("falls through to slug prefix when tag title not found", () => {
+    const items = [{ slug: "++nope", title: "something" }];
+    expect(findAction(items, "++nope").slug).toBe("++nope");
   });
 });

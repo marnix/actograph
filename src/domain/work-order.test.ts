@@ -8,11 +8,11 @@ import {
 } from "./work-order.js";
 import type { Priority } from "./priority.js";
 
-function action(id: string, ...prereqIds: string[]) {
+function action(uuid: string, ...prereqUuids: string[]) {
   return {
-    id,
-    title: id,
-    prerequisites: prereqIds.map((actionId) => ({ actionId, createdAt: 0 })),
+    uuid,
+    title: uuid,
+    prerequisites: prereqUuids.map((u) => ({ uuid: u, createdAt: 0 })),
   };
 }
 
@@ -50,7 +50,6 @@ describe("computeWorkOrder", () => {
       [action("a"), action("b", "a"), action("c", "b")],
       [],
     );
-    // Only direct edges, no transitive a->c
     expect(edges(g)).toEqual(["a->b", "b->c"]);
   });
 
@@ -70,29 +69,21 @@ describe("computeWorkOrder", () => {
   });
 
   it("priority does not override reverse dependency", () => {
-    // a has prio over b, but b is required by a → b must come first
     const prios: Priority[] = [{ higher: "a", lower: "b", createdAt: 0 }];
     const g = computeWorkOrder([action("a", "b"), action("b")], prios);
-    // b before a (req), a NOT before b (prio blocked by reverse req)
     expect(edges(g)).toEqual(["b->a"]);
   });
 
   it("mixed: prereq and priority on different pairs", () => {
-    // a required by b, c has prio over a
     const prios: Priority[] = [{ higher: "c", lower: "a", createdAt: 0 }];
     const g = computeWorkOrder(
       [action("a"), action("b", "a"), action("c")],
       prios,
     );
-    // c->a (prio, no reverse req), a->b (req)
-    // c is NOT before b: c is not req-reachable to b, and not prio-reachable to b
     expect(edges(g)).toEqual(["a->b", "c->a"]);
   });
 
   it("prio edge dropped when it would create a cycle with req", () => {
-    // req: a->b, prio: c->a (oldest) and b->c (newest)
-    // Adding both prios would create a->b->c->a cycle.
-    // Oldest prio (c->a) wins, newest (b->c) is dropped.
     const prios: Priority[] = [
       { higher: "c", lower: "a", createdAt: 1 },
       { higher: "b", lower: "c", createdAt: 2 },
@@ -113,7 +104,6 @@ describe("computeWorkOrder", () => {
   });
 
   it("transitive through hidden: a->B->c preserves a->c", () => {
-    // B is done/hidden, but a should still come before c
     const all = [action("a"), action("b", "a"), action("c", "b")];
     const visible = [action("a"), action("c", "b")];
     const g = computeWorkOrder(visible, [], all);
@@ -161,12 +151,13 @@ describe("computeWorkOrder", () => {
   });
 });
 
-function fullAction(id: string, ...prereqIds: string[]) {
+function fullAction(uuid: string, ...prereqUuids: string[]) {
   return {
-    id,
-    title: id,
+    uuid,
+    slug: uuid,
+    title: uuid,
     state: "open" as const,
-    prerequisites: prereqIds.map((actionId) => ({ actionId, createdAt: 0 })),
+    prerequisites: prereqUuids.map((u) => ({ uuid: u, createdAt: 0 })),
   };
 }
 
@@ -174,17 +165,17 @@ describe("addPrerequisite", () => {
   it("adds a prerequisite", () => {
     const actions = [fullAction("a"), fullAction("b")];
     addPrerequisite(actions, [], "a", "b");
-    const b = actions.find((a) => a.id === "b")!;
+    const b = actions.find((a) => a.uuid === "b")!;
     expect(b.prerequisites).toEqual(
-      expect.arrayContaining([expect.objectContaining({ actionId: "a" })]),
+      expect.arrayContaining([expect.objectContaining({ uuid: "a" })]),
     );
   });
 
   it("is idempotent", () => {
     const actions = [fullAction("a"), fullAction("b", "a")];
     addPrerequisite(actions, [], "a", "b");
-    const b = actions.find((a) => a.id === "b")!;
-    expect(b.prerequisites.filter((p) => p.actionId === "a")).toHaveLength(1);
+    const b = actions.find((a) => a.uuid === "b")!;
+    expect(b.prerequisites.filter((p) => p.uuid === "a")).toHaveLength(1);
   });
 
   it("throws on cycle", () => {
@@ -225,7 +216,7 @@ describe("removePrerequisite", () => {
   it("removes an existing prerequisite", () => {
     const actions = [fullAction("a"), fullAction("b", "a")];
     removePrerequisite(actions, "a", "b");
-    const b = actions.find((a) => a.id === "b")!;
+    const b = actions.find((a) => a.uuid === "b")!;
     expect(b.prerequisites).toHaveLength(0);
   });
 
@@ -256,19 +247,18 @@ describe("removePriority", () => {
 });
 
 describe("tag inheritance via expandTagRelations", () => {
-  function tagAction(tag: string, ...prereqIds: string[]) {
-    return fullAction(`tag-${tag}`, ...prereqIds);
-  }
-
-  // Override title for tag actions
-  function makeTagAction(id: string, tag: string, ...prereqIds: string[]) {
-    const a = fullAction(id, ...prereqIds);
+  function makeTagAction(uuid: string, tag: string, ...prereqUuids: string[]) {
+    const a = fullAction(uuid, ...prereqUuids);
     a.title = `++${tag}`;
     return a;
   }
 
-  function makeTaggedAction(id: string, title: string, ...prereqIds: string[]) {
-    const a = fullAction(id, ...prereqIds);
+  function makeTaggedAction(
+    uuid: string,
+    title: string,
+    ...prereqUuids: string[]
+  ) {
+    const a = fullAction(uuid, ...prereqUuids);
     a.title = title;
     return a;
   }
@@ -279,7 +269,6 @@ describe("tag inheritance via expandTagRelations", () => {
     const tagged = makeTaggedAction("a1", "Fix bug ++urgent");
     const actions = [prereqAction, tagAct, tagged];
     const g = computeWorkOrder(actions, []);
-    // prereq->t1 (direct), prereq->a1 (inherited from tag)
     expect(edges(g)).toContain("prereq->a1");
   });
 
@@ -291,7 +280,6 @@ describe("tag inheritance via expandTagRelations", () => {
     const actions = [tagUrgent, tagBacklog, urgentAction, backlogAction];
     const prios: Priority[] = [{ higher: "t1", lower: "t2", createdAt: 0 }];
     const g = computeWorkOrder(actions, prios);
-    // a1 should have priority over a2 (inherited from tag prio)
     expect(edges(g)).toContain("a1->a2");
   });
 
@@ -299,10 +287,9 @@ describe("tag inheritance via expandTagRelations", () => {
     const tagUrgent = makeTagAction("t1", "urgent");
     const a1 = makeTaggedAction("a1", "Fix ++urgent");
     const actions = [tagUrgent, a1];
-    // prio from t1 to t1 would be weird but shouldn't crash
     const prios: Priority[] = [{ higher: "t1", lower: "t1", createdAt: 0 }];
     const g = computeWorkOrder(actions, prios);
-    expect(g.size).toBe(0); // no edges, since only one member and no self-loops
+    expect(g.size).toBe(0);
   });
 
   it("action with multiple tags inherits from all", () => {
@@ -323,7 +310,6 @@ describe("tag inheritance via expandTagRelations", () => {
     const actions = [tagAct, plain];
     const prios: Priority[] = [{ higher: "t1", lower: "a1", createdAt: 0 }];
     const g = computeWorkOrder(actions, prios);
-    // Direct prio still works, but no tag expansion since a1 doesn't mention ++urgent
     expect(edges(g)).toContain("t1->a1");
   });
 });

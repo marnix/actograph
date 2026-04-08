@@ -13,15 +13,15 @@ const workerScript = join(
 function runWorker(
   dbPath: string,
   index: number,
-): Promise<{ id: string; contention: number }> {
+): Promise<{ uuid: string; contention: number }> {
   return new Promise((resolve, reject) => {
     execFile(
       process.execPath,
       ["--experimental-strip-types", workerScript, dbPath, String(index)],
       (err, stdout) => {
         if (err) return reject(err);
-        const [id, c] = stdout.split(":");
-        resolve({ id: id!, contention: Number(c) });
+        const [uuid, c] = stdout.split(":");
+        resolve({ uuid: uuid!, contention: Number(c) });
       },
     );
   });
@@ -55,10 +55,10 @@ describe("Concurrent CLI invocations (child processes)", () => {
       adapter.close();
 
       expect(actions).toHaveLength(n);
-      for (const { id } of results) {
-        const action = actions.find((a) => a.id === id);
-        expect(action, `action ${id} should exist`).toBeDefined();
-        expect(action!.state, `action ${id} should be done`).toBe("done");
+      for (const { uuid } of results) {
+        const action = actions.find((a) => a.uuid === uuid);
+        expect(action, `action ${uuid} should exist`).toBeDefined();
+        expect(action!.state, `action ${uuid} should be done`).toBe("done");
       }
 
       // Check if real contention occurred
