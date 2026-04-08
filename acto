@@ -4,32 +4,46 @@ set -e
 REQUIRED_NODE_VERSION=24
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# Install and activate Node via nvm or fnm
-if command -v fnm &> /dev/null; then
-    fnm install "$REQUIRED_NODE_VERSION" &> /dev/null
-    eval "$(fnm env)"
-    fnm use "$REQUIRED_NODE_VERSION" &> /dev/null
-elif command -v nvm &> /dev/null; then
-    nvm install "$REQUIRED_NODE_VERSION" &> /dev/null
-    nvm use "$REQUIRED_NODE_VERSION" &> /dev/null
-elif [ -f "$HOME/.nvm/nvm.sh" ]; then
-    source "$HOME/.nvm/nvm.sh"
-    nvm install "$REQUIRED_NODE_VERSION" &> /dev/null
-    nvm use "$REQUIRED_NODE_VERSION" &> /dev/null
-fi
+# Ensure the right Node.js version is available via fnm or nvm.
+# Install only if the required version isn't already installed.
+ensure_node() {
+    if command -v fnm &> /dev/null; then
+        eval "$(fnm env)"
+        if ! fnm list | grep -q "v${REQUIRED_NODE_VERSION}\."; then
+            echo "Installing Node.js ${REQUIRED_NODE_VERSION} via fnm..." >&2
+            fnm install "$REQUIRED_NODE_VERSION"
+        fi
+        fnm use "$REQUIRED_NODE_VERSION" &> /dev/null
+    elif command -v nvm &> /dev/null; then
+        if ! nvm ls "$REQUIRED_NODE_VERSION" &> /dev/null; then
+            echo "Installing Node.js ${REQUIRED_NODE_VERSION} via nvm..." >&2
+            nvm install "$REQUIRED_NODE_VERSION"
+        else
+            nvm use "$REQUIRED_NODE_VERSION" &> /dev/null
+        fi
+    elif [ -f "$HOME/.nvm/nvm.sh" ]; then
+        source "$HOME/.nvm/nvm.sh"
+        if ! nvm ls "$REQUIRED_NODE_VERSION" &> /dev/null; then
+            echo "Installing Node.js ${REQUIRED_NODE_VERSION} via nvm..." >&2
+            nvm install "$REQUIRED_NODE_VERSION"
+        else
+            nvm use "$REQUIRED_NODE_VERSION" &> /dev/null
+        fi
+    fi
+}
 
-# Check Node.js is installed
+ensure_node
+
+# Check Node.js is installed and meets version requirement
 if ! command -v node &> /dev/null; then
     echo "Error: Node.js is not installed" >&2
     echo "Please install fnm or nvm, then run this script again" >&2
     exit 1
 fi
 
-# Check Node.js version
 NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
 if [ "$NODE_VERSION" -lt "$REQUIRED_NODE_VERSION" ]; then
-    echo "Error: Node.js ${REQUIRED_NODE_VERSION}.x or later is required" >&2
-    echo "Current version: $(node -v)" >&2
+    echo "Error: Node.js ${REQUIRED_NODE_VERSION}.x or later is required (current: $(node -v))" >&2
     exit 1
 fi
 
@@ -39,5 +53,4 @@ if [ ! -d "$SCRIPT_DIR/dist" ]; then
     (cd "$SCRIPT_DIR" && npm install && npm run build) >&2
 fi
 
-# Run the CLI
 exec node "$SCRIPT_DIR/dist/index.js" "$@"
