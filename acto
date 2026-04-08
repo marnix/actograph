@@ -2,19 +2,26 @@
 set -e
 
 REQUIRED_NODE_VERSION=24
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# Check if nvm is available and use it
-if command -v nvm &> /dev/null; then
-    nvm use --lts &> /dev/null || true
+# Install and activate Node via nvm or fnm
+if command -v fnm &> /dev/null; then
+    fnm install "$REQUIRED_NODE_VERSION" &> /dev/null
+    eval "$(fnm env)"
+    fnm use "$REQUIRED_NODE_VERSION" &> /dev/null
+elif command -v nvm &> /dev/null; then
+    nvm install "$REQUIRED_NODE_VERSION" &> /dev/null
+    nvm use "$REQUIRED_NODE_VERSION" &> /dev/null
 elif [ -f "$HOME/.nvm/nvm.sh" ]; then
     source "$HOME/.nvm/nvm.sh"
-    nvm use --lts &> /dev/null || true
+    nvm install "$REQUIRED_NODE_VERSION" &> /dev/null
+    nvm use "$REQUIRED_NODE_VERSION" &> /dev/null
 fi
 
 # Check Node.js is installed
 if ! command -v node &> /dev/null; then
     echo "Error: Node.js is not installed" >&2
-    echo "Please install Node.js ${REQUIRED_NODE_VERSION}.x or later" >&2
+    echo "Please install fnm or nvm, then run this script again" >&2
     exit 1
 fi
 
@@ -26,5 +33,11 @@ if [ "$NODE_VERSION" -lt "$REQUIRED_NODE_VERSION" ]; then
     exit 1
 fi
 
+# Auto-build after clean checkout
+if [ ! -d "$SCRIPT_DIR/dist" ]; then
+    echo "First run: installing dependencies and building..." >&2
+    (cd "$SCRIPT_DIR" && npm install && npm run build) >&2
+fi
+
 # Run the CLI
-exec node "$(dirname "$0")/dist/index.js" "$@"
+exec node "$SCRIPT_DIR/dist/index.js" "$@"
