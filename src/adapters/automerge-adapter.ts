@@ -18,6 +18,7 @@ import {
   readFileSync,
   writeFileSync,
   existsSync,
+  statSync,
   linkSync,
   unlinkSync,
 } from "fs";
@@ -41,6 +42,7 @@ type DocSchema = {
 
 const LOCK_SUFFIX = ".lock";
 const LOCK_TIMEOUT_MS = 30_000;
+const STALE_LOCK_MS = 5_000;
 
 const sleepBuf = new SharedArrayBuffer(4);
 const sleepArr = new Int32Array(sleepBuf);
@@ -69,6 +71,15 @@ function acquireLock(filePath: string): {
         throw e;
       }
       contended = true;
+      // Remove stale lock left by a crashed process
+      try {
+        const age = Date.now() - statSync(lockPath).mtimeMs;
+        if (age > STALE_LOCK_MS) {
+          unlinkSync(lockPath);
+        }
+      } catch {
+        // lock disappeared between check and stat/unlink
+      }
       sleep(1 + Math.floor(Math.random() * 10));
     }
   }
