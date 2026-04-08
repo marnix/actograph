@@ -309,4 +309,35 @@ describe("tag inheritance via expandTagRelations", () => {
     const g = computeWorkOrder(actions, prios);
     expect(edges(g)).toContain("t1->a1");
   });
+
+  it("tag prio expands when visible excludes tags but allActions includes them", () => {
+    const tagUrgent = makeTagAction("t1", "urgent");
+    const tagNice = makeTagAction("t2", "nicetohave");
+    const a1 = makeTaggedAction("a1", "Fix ++urgent");
+    const a2 = makeTaggedAction("a2", "Polish ++nicetohave");
+    const all = [tagUrgent, tagNice, a1, a2];
+    const visible = [a1, a2];
+    const prios: Priority[] = [{ higher: "t1", lower: "t2", createdAt: 0 }];
+    const g = computeWorkOrder(visible, prios, all);
+    expect(g.hasEdge("a1", "a2")).toBe(true);
+  });
+
+  it("tag prio preserved in --all with done prereq", () => {
+    // Mirrors: Design(done) -> Implement -> Test -> Deploy,
+    // with ++urgent on "Fix" and ++nicetohave on "Docs",
+    // and tag prio urgent > nicetohave
+    const tagUrgent = makeTagAction("t1", "urgent");
+    const tagNice = makeTagAction("t2", "nicetohave");
+    const design = fullAction("design");
+    design.title = "Design";
+    design.state = "done";
+    const impl = makeTaggedAction("impl", "Implement ++urgent", "design");
+    const docs = makeTaggedAction("docs", "Docs ++nicetohave");
+    const all = [tagUrgent, tagNice, design, impl, docs];
+    const visible = [design, impl, docs]; // --all: includes done, excludes tags
+    const prios: Priority[] = [{ higher: "t1", lower: "t2", createdAt: 0 }];
+    const g = computeWorkOrder(visible, prios, all);
+    // impl (urgent) should have priority over docs (nicetohave)
+    expect(g.hasEdge("impl", "docs")).toBe(true);
+  });
 });

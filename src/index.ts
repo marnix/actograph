@@ -96,11 +96,7 @@ program
       return;
     }
     const annotations = buildAnnotations(visible, actions, priorities);
-    const graph = computeWorkOrder(
-      visible,
-      priorities,
-      opts.all ? undefined : actions,
-    );
+    const graph = computeWorkOrder(visible, priorities, actions);
     const sp = spDecompose(graph);
     const actionMap = new Map(visible.map((a) => [a.uuid, a]));
     const output = renderSP(sp, (uuid) => {
