@@ -117,16 +117,27 @@ function parseState(key: string, record: ActionRecord): ActionState {
   return "open";
 }
 
-function assertUniqueSlugs(actions: Action[]): void {
-  const seen = new Map<string, string>();
+function assertNoDuplicates(actions: Action[]): void {
+  const slugs = new Map<string, string>();
+  const tagTitles = new Map<string, string>();
   for (const a of actions) {
-    const prev = seen.get(a.slug);
-    if (prev) {
+    const prevSlug = slugs.get(a.slug);
+    if (prevSlug) {
       throw new Error(
-        `Duplicate slug "${a.slug}" on actions ${prev} and ${a.uuid}`,
+        `Duplicate slug "${a.slug}" on actions ${prevSlug} and ${a.uuid}`,
       );
     }
-    seen.set(a.slug, a.uuid);
+    slugs.set(a.slug, a.uuid);
+
+    if (/^\s*\+\+\w+\s*$/.test(a.title)) {
+      const prevTag = tagTitles.get(a.title);
+      if (prevTag) {
+        throw new Error(
+          `Duplicate tag action "${a.title}" on ${prevTag} and ${a.uuid}`,
+        );
+      }
+      tagTitles.set(a.title, a.uuid);
+    }
   }
 }
 
@@ -155,7 +166,7 @@ function docToActions(doc: Automerge.Doc<DocSchema>): {
         createdAt: p.createdAt,
       })),
     }));
-    assertUniqueSlugs(actions);
+    assertNoDuplicates(actions);
     return { actions, migrated: false };
   }
 
@@ -177,7 +188,7 @@ function docToActions(doc: Automerge.Doc<DocSchema>): {
     })),
   }));
 
-  assertUniqueSlugs(actions);
+  assertNoDuplicates(actions);
   return { actions, migrated: true };
 }
 

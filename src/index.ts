@@ -10,7 +10,11 @@ import {
   formatTagLabel,
 } from "./cli/list-format.js";
 import type { ActionState } from "./domain/action.js";
-import { transitionAction, createAction } from "./domain/action.js";
+import {
+  transitionAction,
+  createAction,
+  validateNewAction,
+} from "./domain/action.js";
 import { isTagTitle } from "./domain/tags.js";
 import {
   computeWorkOrder,
@@ -113,6 +117,12 @@ program
   .action((title: string) => {
     const adapter = new AutomergeAdapter(dbPath());
     adapter.transact(({ actions, priorities }) => {
+      try {
+        validateNewAction(title, actions);
+      } catch (e) {
+        console.error((e as Error).message);
+        process.exit(1);
+      }
       actions.push(
         createAction(
           randomUUID(),

@@ -47,3 +47,10 @@ export function createAction(
 ): Action {
   return { uuid, slug, title, state: "open", prerequisites: [] };
 }
+
+/** Validate that a new action can be added to the existing set. */
+export function validateNewAction(title: string, existing: Action[]): void {
+  if (isTagTitle(title) && existing.some((a) => a.title === title)) {
+    throw new Error(`Tag action "${title}" already exists`);
+  }
+}

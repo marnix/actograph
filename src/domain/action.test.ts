@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 import type { Action, ActionState } from "./action.js";
-import { canTransition, transitionAction, createAction } from "./action.js";
+import {
+  canTransition,
+  transitionAction,
+  createAction,
+  validateNewAction,
+} from "./action.js";
 
 describe("Action", () => {
   it("should create an action with title and state", () => {
@@ -86,4 +91,22 @@ describe("transitionAction", () => {
       expect(a.state).toBe("open");
     },
   );
+});
+
+describe("validateNewAction", () => {
+  it("allows duplicate non-tag titles", () => {
+    const existing = [createAction("u1", "s1", "Fix bug")];
+    expect(() => validateNewAction("Fix bug", existing)).not.toThrow();
+  });
+
+  it("allows first tag action", () => {
+    expect(() => validateNewAction("++urgent", [])).not.toThrow();
+  });
+
+  it("rejects duplicate tag action", () => {
+    const existing = [createAction("u1", "s1", "++urgent")];
+    expect(() => validateNewAction("++urgent", existing)).toThrow(
+      'Tag action "++urgent" already exists',
+    );
+  });
 });
