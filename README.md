@@ -64,25 +64,15 @@ npm run dev
 
 Roughly in order, but not set in stone:
 
-1. ~~**Human-friendly action IDs** — Replace UUIDs with short memorable identifiers (stable across edits). Format TBD~~ ✅ Done: CVCVCVC syllable IDs with profanity filtering
-2. ~~**Dependencies** — "A needs B": store and display which actions depend on which~~ ✅ Done: `acto req` command
-3. ~~**"More important than" relation** — A separate priority ordering between actions~~ ✅ Done: `acto prio` command
-4. ~~**Work order display** — Show actions as a series-parallel graph based on dependencies and priority~~ ✅ Done: `acto list` shows SP-structured output with `>>` and `||` markers
-5. ~~**Action lifecycle** — Replace the boolean `completed` with states (Open, Active, Done, Skipped) and transitions~~ ✅ Done: 4-state model with `go`, `stop`, `done`, `donot`, `redo` commands
-6. ~~**CLI/UX design** — Design a concise command vocabulary~~ ✅ Done: `do`, `done`, `go`, `stop`, `donot`, `redo`, `list`, `req`, `prio`, `unreq`, `unprio`
-7. ~~**State transition validation** — Guard CLI state commands against invalid transitions (e.g., `go` only from Open, `stop` only from Active), matching the state machine in the design doc~~ ✅ Done: `canTransition` guard in domain layer, enforced by all state commands
-8. ~~**Cycle prevention in CLI** — Call `wouldCreateCycle` from `req` and `prio` commands to reject cycle-introducing dependencies at input time~~ ✅ Done: both commands check against the full work order graph before persisting
-9. ~~**Remove dependencies/priorities** — Add `unreq` and `unprio` commands to undo `req`/`prio` relations~~ ✅ Done: domain-level `removePrerequisite`/`removePriority` with CLI commands
-10. ~~**Hide completed/skipped actions** — Filter Done and Skipped actions from `list` by default (as the design doc specifies), with a flag like `--all` to show everything~~ ✅ Done: `list` shows open/active only, `list -a` shows all
-11. ~~**Tags** — Any action description can include `++sometagname` inline. An action whose description is _only_ a tag name (e.g., `++urgent`) becomes a tag action; its dependencies are inherited by all actions that mention that tag. This implements the "task groups" concept from the design doc (triaging by priority, project, version) without a separate grouping mechanism~~ ✅ Done: `++tagname` parsing, tag actions with inherited prereqs/prios, `list --tags`, tag actions excluded from `list`/`list -a`, state commands blocked on tag actions, `++tagname` lookup in `req`/`prio`/`unreq`/`unprio`
-12. **Edit action title** — `acto edit <id>` opens the current title for inline editing using `node:readline/promises` (built-in, no extra dependency). Adding or removing `++tag` tokens in the title should automatically update the work order (tag inheritance is computed dynamically, so this should work out of the box). Attention point: verify that changing tags on an action correctly adjusts its position in the work order
-13. **Show single action** — `acto show <slug>` to inspect one action's full state, prerequisites, and priority relations
-14. **Multi-device sync** — Add a `merge` command that loads a second `.automerge` file and merges it into the local one. Must handle duplicate slugs and duplicate tag actions that can arise from independent creation on different devices (currently detected and rejected at load time; merge should auto-resolve by regenerating slugs and renaming tag actions). Also needs to clean up dangling prerequisite/priority references to actions that were removed on another device (currently warned at load time but not auto-cleaned)
-15. **Cycle robustness after merge** — Handle cycles that appear via concurrent edits after multi-device merge (detect, warn, and gracefully degrade the work order rather than crash)
-16. **Cross-platform storage** — Appropriate default DB locations for macOS (`~/Library/Application Support`) and Windows (`%LOCALAPPDATA%`), including WSL2 using the Windows location
-17. **Terminal UI** — Interactive terminal interface (consider [Ink](https://github.com/vadimdemedes/ink) for React-based Node.js TUI)
-18. **Web UI** — Browser-based interface
-19. **Multi-user/team collaboration**
+- **Edit action title** — `acto edit <id>` opens the current title for inline editing using `node:readline/promises` (built-in, no extra dependency). Adding or removing `++tag` tokens in the title should automatically update the work order (tag inheritance is computed dynamically, so this should work out of the box). Attention point: verify that changing tags on an action correctly adjusts its position in the work order
+- **Action management commands** — Commands and conventions for common workflows: splitting an action into sub-actions, replacing an action with a refined version, and deadline/milestone actions (e.g., a release cut-off date that other actions must precede). Explore whether deadlines are best modeled as tag actions, regular actions with `req` edges, or something new. Include guidance on idiomatic patterns for these workflows
+- **Show single action** — `acto show <slug>` to inspect one action's full state, prerequisites, and priority relations
+- **Multi-device sync** — Add a `merge` command that loads a second `.automerge` file and merges it into the local one. Must handle duplicate slugs and duplicate tag actions that can arise from independent creation on different devices (currently detected and rejected at load time; merge should auto-resolve by regenerating slugs and renaming tag actions). Also needs to clean up dangling prerequisite/priority references to actions that were removed on another device (currently warned at load time but not auto-cleaned)
+- **Cycle robustness after merge** — Handle cycles that appear via concurrent edits after multi-device merge (detect, warn, and gracefully degrade the work order rather than crash)
+- **Cross-platform storage** — Appropriate default DB locations for macOS (`~/Library/Application Support`) and Windows (`%LOCALAPPDATA%`), including WSL2 using the Windows location
+- **Terminal UI** — Interactive terminal interface (consider [Ink](https://github.com/vadimdemedes/ink) for React-based Node.js TUI)
+- **Web UI** — Browser-based interface
+- **Multi-user/team collaboration**
 
 ## License
 
