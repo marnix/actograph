@@ -64,10 +64,14 @@ npm run dev
 
 Roughly in order, but not set in stone:
 
-- **Edit action title** — `acto edit <id>` opens the current title for inline editing using `node:readline/promises` (built-in, no extra dependency). Adding or removing `++tag` tokens in the title should automatically update the work order (tag inheritance is computed dynamically, so this should work out of the box). Attention point: verify that changing tags on an action correctly adjusts its position in the work order
+- **Edit action title** — `acto edit <id>` opens the current title for inline editing using `node:readline/promises` (built-in, no extra dependency). Also a single-command form: `acto edit <slug> <new-title>`. Adding or removing `++tag` tokens in the title should automatically update the work order (tag inheritance is computed dynamically, so this should work out of the box). Attention point: verify that changing tags on an action correctly adjusts its position in the work order
+- **Parallel action sorting** — When actions are parallel in the work order (no ordering between them), sort by state (active → open → done → skipped), then within each state group by least-recently-touched first (so older actions float to the top and are harder to forget)
+- **Auto-add tags** — Adding an action with an unknown `++tag` automatically creates the tag action. A one-time migration adds tag actions retroactively for all existing tags that lack one
+- **List by tag** — `acto list ++sometag` lists all actions carrying that tag
+- **Tag usage in list** — `acto list --tags` shows which tags are unused; sort tags by usage count (most-used first)
+- **Show slug on create** — `acto do` prints the slug of the newly created action
 - **Action management commands** — Commands and conventions for common workflows: splitting an action into sub-actions, replacing an action with a refined version, and deadline/milestone actions (e.g., a release cut-off date that other actions must precede). Explore whether deadlines are best modeled as tag actions, regular actions with `req` edges, or something new. Include guidance on idiomatic patterns for these workflows
 - **Show single action** — `acto show <slug>` to inspect one action's full state, prerequisites, and priority relations
-- **Parallel action sorting** — When actions are parallel in the work order (no ordering between them), sort by state (active → open → done → skipped), then within each state group by least-recently-touched first (so older actions float to the top and are harder to forget)
 - **Indented sequential rendering** — Improve `list` readability by indenting sequential chains: either indent all but the first `>>` level, or add one space of indent per action depth. Explore which feels more natural for nested series-parallel structures
 - **Multi-device sync** — Add a `merge` command that loads a second `.automerge` file and merges it into the local one. Must handle duplicate slugs and duplicate tag actions that can arise from independent creation on different devices (currently detected and rejected at load time; merge should auto-resolve by regenerating slugs and renaming tag actions). Also needs to clean up dangling prerequisite/priority references to actions that were removed on another device (currently warned at load time but not auto-cleaned)
 - **Cycle robustness after merge** — Handle cycles that appear via concurrent edits after multi-device merge (detect, warn, and gracefully degrade the work order rather than crash)
@@ -75,6 +79,10 @@ Roughly in order, but not set in stone:
 - **Terminal UI** — Interactive terminal interface (consider [Ink](https://github.com/vadimdemedes/ink) for React-based Node.js TUI)
 - **Web UI** — Browser-based interface
 - **Multi-user/team collaboration**
+
+## Known Issues
+
+- Extraneous command-line arguments are silently accepted; they should be rejected
 
 ## License
 
