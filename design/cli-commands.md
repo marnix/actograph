@@ -42,6 +42,7 @@ Alternatives considered for the priority command:
 Commands for managing action state:
 
 - `acto do <title>` — Create a new action (state: Open)
+- `acto edit <slug> [new-title]` — Edit an action's title. If `new-title` is omitted, opens interactive readline editing with the current title pre-filled. Tag actions cannot be edited, and an action cannot be changed to a tag-only title
 - `acto go <slug>` — Start working on an action (Open → Active)
 - `acto stop <slug>` — Pause an active action (Active → Open)
 - `acto done <slug>` — Mark an action as done (Open/Active → Done)

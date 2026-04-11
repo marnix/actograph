@@ -1,6 +1,7 @@
 // index.ts - CLI entry point
 
 import { Command } from "commander";
+import { createInterface } from "readline/promises";
 import { randomUUID } from "crypto";
 import { generateSlug } from "./domain/action-id.js";
 import { findAction } from "./cli/find-action.js";
@@ -14,6 +15,7 @@ import {
   transitionAction,
   createAction,
   validateNewAction,
+  editAction,
 } from "./domain/action.js";
 import { isTagTitle } from "./domain/tags.js";
 import {
@@ -130,6 +132,77 @@ program
       return { actions, priorities };
     });
     adapter.close();
+  });
+
+program
+  .command("edit")
+  .description("Edit an action's title")
+  .argument("<slug>", "Action slug (or prefix)")
+  .argument("[new-title]", "New title (interactive if omitted)")
+  .action(async (slugPrefix: string, newTitle?: string) => {
+    const adapter = new AutomergeAdapter(dbPath());
+    if (newTitle !== undefined) {
+      adapter.transact(({ actions, priorities }) => {
+        try {
+          const action = findAction(actions, slugPrefix);
+          editAction(action, newTitle);
+          console.log(`Edited: "${action.title}"`);
+        } catch (e) {
+          console.error((e as Error).message);
+          process.exit(1);
+        }
+        return { actions, priorities };
+      });
+      adapter.close();
+      return;
+    }
+    // Interactive mode: read current title, let user edit it
+    const actions = adapter.load();
+    let action;
+    try {
+      action = findAction(actions, slugPrefix);
+    } catch (e) {
+      adapter.close();
+      console.error((e as Error).message);
+      process.exit(1);
+    }
+    if (isTagTitle(action.title)) {
+      adapter.close();
+      console.error(`Cannot edit tag action "${action.title}"`);
+      process.exit(1);
+    }
+    const rl = createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+    try {
+      // Pre-fill the input with the current title for inline editing
+      const promise = rl.question("Title: ");
+      rl.write(action.title);
+      const edited = await promise;
+      rl.close();
+      if (edited === action.title) {
+        console.log("No change.");
+        adapter.close();
+        return;
+      }
+      adapter.transact(({ actions: acts, priorities }) => {
+        try {
+          const a = findAction(acts, slugPrefix);
+          editAction(a, edited);
+          console.log(`Edited: "${a.title}"`);
+        } catch (e) {
+          console.error((e as Error).message);
+          process.exit(1);
+        }
+        return { actions: acts, priorities };
+      });
+    } catch {
+      console.log("\nCancelled.");
+    } finally {
+      rl.close();
+      adapter.close();
+    }
   });
 
 // --- Lifecycle ---
@@ -281,4 +354,4 @@ program
     adapter.close();
   });
 
-program.parse();
+program.parseAsync();
