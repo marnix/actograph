@@ -54,3 +54,14 @@ export function validateNewAction(title: string, existing: Action[]): void {
     throw new Error(`Tag action "${title}" already exists`);
   }
 }
+
+/** Update an action's title. Tag actions cannot be edited. */
+export function editAction(action: Action, newTitle: string): void {
+  if (isTagTitle(action.title)) {
+    throw new Error(`Cannot edit tag action "${action.title}"`);
+  }
+  if (isTagTitle(newTitle)) {
+    throw new Error(`Cannot change action to a tag-only title`);
+  }
+  action.title = newTitle;
+}

@@ -5,6 +5,7 @@ import {
   transitionAction,
   createAction,
   validateNewAction,
+  editAction,
 } from "./action.js";
 
 describe("Action", () => {
@@ -108,5 +109,35 @@ describe("validateNewAction", () => {
     expect(() => validateNewAction("++urgent", existing)).toThrow(
       'Tag action "++urgent" already exists',
     );
+  });
+});
+
+describe("editAction", () => {
+  it("updates the title", () => {
+    const a = createAction("u1", "s1", "Old title");
+    editAction(a, "New title");
+    expect(a.title).toBe("New title");
+  });
+
+  it("allows adding tag tokens to a normal title", () => {
+    const a = createAction("u1", "s1", "Fix bug");
+    editAction(a, "Fix bug ++urgent");
+    expect(a.title).toBe("Fix bug ++urgent");
+  });
+
+  it("rejects editing a tag action", () => {
+    const a = createAction("u1", "s1", "++urgent");
+    expect(() => editAction(a, "renamed")).toThrow(
+      'Cannot edit tag action "++urgent"',
+    );
+    expect(a.title).toBe("++urgent");
+  });
+
+  it("rejects changing to a tag-only title", () => {
+    const a = createAction("u1", "s1", "Fix bug");
+    expect(() => editAction(a, "++urgent")).toThrow(
+      "Cannot change action to a tag-only title",
+    );
+    expect(a.title).toBe("Fix bug");
   });
 });
