@@ -10,14 +10,14 @@ import {
   formatActionLabel,
   formatTagLabel,
 } from "./list-format.js";
-import type { ActionState } from "../domain/action.js";
+import type { Action, ActionState } from "../domain/action.js";
 import {
   transitionAction,
   createAction,
   validateNewAction,
   editAction,
 } from "../domain/action.js";
-import { isTagTitle } from "../domain/tags.js";
+import { isTagTitle, missingTagActions } from "../domain/tags.js";
 import {
   computeWorkOrder,
   addPrerequisite,
@@ -56,6 +56,25 @@ export function createProgram(): Command {
     return join(resolveDataDir(), "actograph.automerge");
   }
 
+  /** Create tag actions for all tags referenced in any action title but missing a tag action. */
+  function autoCreateMissingTags(actions: Action[]): void {
+    const seen = new Set<string>();
+    for (const a of actions) {
+      for (const tag of missingTagActions(a.title, actions)) {
+        if (!seen.has(tag)) {
+          seen.add(tag);
+          actions.push(
+            createAction(
+              randomUUID(),
+              generateSlug((s) => actions.every((x) => x.slug !== s)),
+              tag,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   // --- Work ---
 
   program
@@ -67,6 +86,17 @@ export function createProgram(): Command {
     .option("-t, --tags", "Show only tag actions")
     .action((opts: { all?: boolean; tags?: boolean }) => {
       const adapter = new AutomergeAdapter(dbPath());
+      // One-time migration: create missing tag actions
+      adapter.transact(({ actions, priorities }) => {
+        const before = actions.length;
+        autoCreateMissingTags(actions);
+        if (actions.length > before) {
+          console.error(
+            `Migrated: created ${actions.length - before} missing tag action(s)`,
+          );
+        }
+        return { actions, priorities };
+      });
       const actions = adapter.load();
       const priorities = adapter.loadPriorities();
       adapter.close();
@@ -138,6 +168,7 @@ export function createProgram(): Command {
             title,
           ),
         );
+        autoCreateMissingTags(actions);
         console.log(`Added: "${title}" (${actions.length} actions total)`);
         return { actions, priorities };
       });
@@ -156,6 +187,7 @@ export function createProgram(): Command {
           try {
             const action = findAction(actions, slugPrefix);
             editAction(action, newTitle);
+            autoCreateMissingTags(actions);
             console.log(`Edited: "${action.title}"`);
           } catch (e) {
             console.error((e as Error).message);
@@ -200,6 +232,7 @@ export function createProgram(): Command {
           try {
             const a = findAction(acts, slugPrefix);
             editAction(a, edited);
+            autoCreateMissingTags(acts);
             console.log(`Edited: "${a.title}"`);
           } catch (e) {
             console.error((e as Error).message);
