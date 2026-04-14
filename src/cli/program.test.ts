@@ -66,47 +66,35 @@ describe("CLI excess arguments", () => {
 
 describe("CLI tag state rejection", () => {
   let dataDir: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let exitMock: any;
 
   beforeEach(async () => {
     dataDir = mkdtempSync(join(tmpdir(), "acto-test-"));
-    exitMock = vi
-      .spyOn(process, "exit")
-      .mockImplementation((() => {}) as never);
     await testProgram("--data-dir", dataDir, "do", "++urgent");
-    exitMock.mockClear();
   });
 
   afterEach(() => {
-    exitMock.mockRestore();
     rmSync(dataDir, { recursive: true, force: true });
   });
 
   it("rejects state change on tag action", async () => {
-    await testProgram("--data-dir", dataDir, "go", "++urgent");
-    expect(exitMock).toHaveBeenCalledWith(1);
+    await expect(
+      testProgram("--data-dir", dataDir, "go", "++urgent"),
+    ).rejects.toThrow(/Cannot change state of tag action/);
   });
 });
 
 describe("CLI parallel action sorting", () => {
   let dataDir: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let exitMock: any;
   let clock: number;
 
   beforeEach(async () => {
     dataDir = mkdtempSync(join(tmpdir(), "acto-sort-"));
-    exitMock = vi
-      .spyOn(process, "exit")
-      .mockImplementation((() => {}) as never);
     clock = 1000;
     vi.spyOn(Date, "now").mockImplementation(() => clock++);
     // Create three actions with deterministic timestamps
     await testProgram("--data-dir", dataDir, "do", "Alpha task");
     await testProgram("--data-dir", dataDir, "do", "Beta task");
     await testProgram("--data-dir", dataDir, "do", "Gamma task");
-    exitMock.mockClear();
   });
 
   afterEach(() => {

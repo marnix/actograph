@@ -105,8 +105,7 @@ export function createProgram(): Command {
 
         if (tag !== undefined) {
           if (!tag.startsWith("++")) {
-            console.error(`Tag filter must start with ++ (got "${tag}")`);
-            process.exit(1);
+            throw new Error(`Tag filter must start with ++ (got "${tag}")`);
           }
           const tagged = actions.filter(
             (a) =>
@@ -209,12 +208,7 @@ export function createProgram(): Command {
         }
       }
       adapter.transact(({ actions, priorities }) => {
-        try {
-          validateNewAction(title, actions);
-        } catch (e) {
-          console.error((e as Error).message);
-          process.exit(1);
-        }
+        validateNewAction(title, actions);
         const slug = generateSlug((s) => actions.every((a) => a.slug !== s));
         actions.push(createAction(randomUUID(), slug, title));
         autoCreateMissingTags(actions);
@@ -233,15 +227,10 @@ export function createProgram(): Command {
       const adapter = new AutomergeAdapter(dbPath());
       if (newTitle !== undefined) {
         adapter.transact(({ actions, priorities }) => {
-          try {
-            const action = findAction(actions, slugPrefix);
-            editAction(action, newTitle);
-            autoCreateMissingTags(actions);
-            console.log(`Edited: "${action.title}"`);
-          } catch (e) {
-            console.error((e as Error).message);
-            process.exit(1);
-          }
+          const action = findAction(actions, slugPrefix);
+          editAction(action, newTitle);
+          autoCreateMissingTags(actions);
+          console.log(`Edited: "${action.title}"`);
           return { actions, priorities };
         });
         adapter.close();
@@ -254,13 +243,11 @@ export function createProgram(): Command {
         action = findAction(actions, slugPrefix);
       } catch (e) {
         adapter.close();
-        console.error((e as Error).message);
-        process.exit(1);
+        throw e;
       }
       if (isTagTitle(action.title)) {
         adapter.close();
-        console.error(`Cannot edit tag action "${action.title}"`);
-        process.exit(1);
+        throw new Error(`Cannot edit tag action "${action.title}"`);
       }
       const rl = createInterface({
         input: process.stdin,
@@ -278,15 +265,10 @@ export function createProgram(): Command {
           return;
         }
         adapter.transact(({ actions: acts, priorities }) => {
-          try {
-            const a = findAction(acts, slugPrefix);
-            editAction(a, edited);
-            autoCreateMissingTags(acts);
-            console.log(`Edited: "${a.title}"`);
-          } catch (e) {
-            console.error((e as Error).message);
-            process.exit(1);
-          }
+          const a = findAction(acts, slugPrefix);
+          editAction(a, edited);
+          autoCreateMissingTags(acts);
+          console.log(`Edited: "${a.title}"`);
           return { actions: acts, priorities };
         });
       } catch {
@@ -312,14 +294,9 @@ export function createProgram(): Command {
       .action((slugPrefix: string) => {
         const adapter = new AutomergeAdapter(dbPath());
         adapter.transact(({ actions, priorities }) => {
-          try {
-            const action = findAction(actions, slugPrefix);
-            transitionAction(action, newState);
-            console.log(`${label}: "${action.title}"`);
-          } catch (e) {
-            console.error((e as Error).message);
-            process.exit(1);
-          }
+          const action = findAction(actions, slugPrefix);
+          transitionAction(action, newState);
+          console.log(`${label}: "${action.title}"`);
           return { actions, priorities };
         });
         adapter.close();
@@ -342,21 +319,15 @@ export function createProgram(): Command {
     .argument("<slugs...>", "Action slugs (or prefixes) in work order")
     .action((slugs: string[]) => {
       if (slugs.length < 2) {
-        console.error("Need at least two action slugs");
-        process.exit(1);
+        throw new Error("Need at least two action slugs");
       }
       const adapter = new AutomergeAdapter(dbPath());
       adapter.transact(({ actions, priorities }) => {
-        try {
-          const resolved = slugs.map((prefix) => findAction(actions, prefix));
-          resolved.reduce((prev, curr) => {
-            addPrerequisite(actions, priorities, prev.uuid, curr.uuid);
-            return curr;
-          });
-        } catch (e) {
-          console.error((e as Error).message);
-          process.exit(1);
-        }
+        const resolved = slugs.map((prefix) => findAction(actions, prefix));
+        resolved.reduce((prev, curr) => {
+          addPrerequisite(actions, priorities, prev.uuid, curr.uuid);
+          return curr;
+        });
         console.log(`Added prerequisite(s)`);
         return { actions, priorities };
       });
@@ -371,21 +342,15 @@ export function createProgram(): Command {
     .argument("<slugs...>", "Action slugs (or prefixes) in priority order")
     .action((slugs: string[]) => {
       if (slugs.length < 2) {
-        console.error("Need at least two action slugs");
-        process.exit(1);
+        throw new Error("Need at least two action slugs");
       }
       const adapter = new AutomergeAdapter(dbPath());
       adapter.transact(({ actions, priorities }) => {
-        try {
-          const resolved = slugs.map((prefix) => findAction(actions, prefix));
-          resolved.reduce((prev, curr) => {
-            addPriority(actions, priorities, prev.uuid, curr.uuid);
-            return curr;
-          });
-        } catch (e) {
-          console.error((e as Error).message);
-          process.exit(1);
-        }
+        const resolved = slugs.map((prefix) => findAction(actions, prefix));
+        resolved.reduce((prev, curr) => {
+          addPriority(actions, priorities, prev.uuid, curr.uuid);
+          return curr;
+        });
         console.log(`Added priority relation(s)`);
         return { actions, priorities };
       });
@@ -398,21 +363,15 @@ export function createProgram(): Command {
     .argument("<slugs...>", "Action slugs (or prefixes) in work order")
     .action((slugs: string[]) => {
       if (slugs.length < 2) {
-        console.error("Need at least two action slugs");
-        process.exit(1);
+        throw new Error("Need at least two action slugs");
       }
       const adapter = new AutomergeAdapter(dbPath());
       adapter.transact(({ actions, priorities }) => {
-        try {
-          const resolved = slugs.map((prefix) => findAction(actions, prefix));
-          resolved.reduce((prev, curr) => {
-            removePrerequisite(actions, prev.uuid, curr.uuid);
-            return curr;
-          });
-        } catch (e) {
-          console.error((e as Error).message);
-          process.exit(1);
-        }
+        const resolved = slugs.map((prefix) => findAction(actions, prefix));
+        resolved.reduce((prev, curr) => {
+          removePrerequisite(actions, prev.uuid, curr.uuid);
+          return curr;
+        });
         console.log(`Removed prerequisite(s)`);
         return { actions, priorities };
       });
@@ -425,21 +384,15 @@ export function createProgram(): Command {
     .argument("<slugs...>", "Action slugs (or prefixes) in priority order")
     .action((slugs: string[]) => {
       if (slugs.length < 2) {
-        console.error("Need at least two action slugs");
-        process.exit(1);
+        throw new Error("Need at least two action slugs");
       }
       const adapter = new AutomergeAdapter(dbPath());
       adapter.transact(({ actions, priorities }) => {
-        try {
-          const resolved = slugs.map((prefix) => findAction(actions, prefix));
-          resolved.reduce((prev, curr) => {
-            removePriority(priorities, prev.uuid, curr.uuid);
-            return curr;
-          });
-        } catch (e) {
-          console.error((e as Error).message);
-          process.exit(1);
-        }
+        const resolved = slugs.map((prefix) => findAction(actions, prefix));
+        resolved.reduce((prev, curr) => {
+          removePriority(priorities, prev.uuid, curr.uuid);
+          return curr;
+        });
         console.log(`Removed priority relation(s)`);
         return { actions, priorities };
       });
