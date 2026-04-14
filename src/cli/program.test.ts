@@ -14,6 +14,23 @@ function testProgram(...args: string[]) {
   return program.parseAsync(["node", "acto", ...args]);
 }
 
+function testProgramStderr(...args: string[]): {
+  promise: Promise<unknown>;
+  stderr: () => string;
+} {
+  const lines: string[] = [];
+  const program = createProgram();
+  program.exitOverride();
+  program.configureOutput({
+    writeErr: (s) => lines.push(s),
+    writeOut: () => {},
+  });
+  return {
+    promise: program.parseAsync(["node", "acto", ...args]),
+    stderr: () => lines.join(""),
+  };
+}
+
 function captureStdout(fn: () => Promise<unknown>): Promise<string> {
   const lines: string[] = [];
   const origLog = console.log;
@@ -29,15 +46,21 @@ function captureStdout(fn: () => Promise<unknown>): Promise<string> {
 
 describe("CLI excess arguments", () => {
   it("rejects extra arguments on list", async () => {
-    await expect(testProgram("list", "extra")).rejects.toThrow();
+    const { promise, stderr } = testProgramStderr("list", "++tag", "extra");
+    await expect(promise).rejects.toThrow();
+    expect(stderr()).toMatch(/too many arguments/);
   });
 
   it("rejects extra arguments on do", async () => {
-    await expect(testProgram("do", "title", "extra")).rejects.toThrow();
+    const { promise, stderr } = testProgramStderr("do", "title", "extra");
+    await expect(promise).rejects.toThrow();
+    expect(stderr()).toMatch(/too many arguments/);
   });
 
   it("rejects extra arguments on go", async () => {
-    await expect(testProgram("go", "slug", "extra")).rejects.toThrow();
+    const { promise, stderr } = testProgramStderr("go", "slug", "extra");
+    await expect(promise).rejects.toThrow();
+    expect(stderr()).toMatch(/too many arguments/);
   });
 });
 
@@ -211,5 +234,36 @@ describe("CLI interactive do", () => {
         writable: true,
       });
     }
+  });
+});
+
+describe("CLI list by tag", () => {
+  let dataDir: string;
+
+  beforeEach(async () => {
+    dataDir = mkdtempSync(join(tmpdir(), "acto-ltag-"));
+    await testProgram("--data-dir", dataDir, "do", "Fix bug ++urgent");
+    await testProgram("--data-dir", dataDir, "do", "Write docs ++later");
+    await testProgram("--data-dir", dataDir, "do", "Plain task");
+  });
+
+  afterEach(() => {
+    rmSync(dataDir, { recursive: true, force: true });
+  });
+
+  it("lists only actions with the given tag", async () => {
+    const output = await captureStdout(() =>
+      testProgram("--data-dir", dataDir, "list", "++urgent"),
+    );
+    expect(output).toContain("Fix bug ++urgent");
+    expect(output).not.toContain("Write docs");
+    expect(output).not.toContain("Plain task");
+  });
+
+  it("shows empty message when no actions match", async () => {
+    const output = await captureStdout(() =>
+      testProgram("--data-dir", dataDir, "list", "++nonexistent"),
+    );
+    expect(output).toContain("No actions with tag ++nonexistent.");
   });
 });
