@@ -66,31 +66,28 @@ describe("CLI tag state rejection", () => {
   });
 });
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 describe("CLI parallel action sorting", () => {
   let dataDir: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let exitMock: any;
+  let clock: number;
 
   beforeEach(async () => {
     dataDir = mkdtempSync(join(tmpdir(), "acto-sort-"));
     exitMock = vi
       .spyOn(process, "exit")
       .mockImplementation((() => {}) as never);
-    // Create three actions with distinct timestamps
+    clock = 1000;
+    vi.spyOn(Date, "now").mockImplementation(() => clock++);
+    // Create three actions with deterministic timestamps
     await testProgram("--data-dir", dataDir, "do", "Alpha task");
-    await sleep(5);
     await testProgram("--data-dir", dataDir, "do", "Beta task");
-    await sleep(5);
     await testProgram("--data-dir", dataDir, "do", "Gamma task");
     exitMock.mockClear();
   });
 
   afterEach(() => {
-    exitMock.mockRestore();
+    vi.restoreAllMocks();
     rmSync(dataDir, { recursive: true, force: true });
   });
 
