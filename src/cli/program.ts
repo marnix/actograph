@@ -26,6 +26,7 @@ import {
   removePriority,
 } from "../domain/work-order.js";
 import { spDecompose } from "../domain/sp-decompose.js";
+import { sortSP } from "../domain/sort-sp.js";
 import { renderSP } from "../domain/render-sp.js";
 import { AutomergeAdapter } from "../adapters/automerge-adapter.js";
 import { getDataDir } from "../storage.js";
@@ -104,9 +105,12 @@ export function createProgram(): Command {
         return;
       }
       const annotations = buildAnnotations(visible, actions, priorities);
-      const graph = computeWorkOrder(visible, priorities, actions);
-      const sp = spDecompose(graph);
       const actionMap = new Map(visible.map((a) => [a.uuid, a]));
+      const graph = computeWorkOrder(visible, priorities, actions);
+      const sp = sortSP(
+        spDecompose(graph),
+        (uuid) => actionMap.get(uuid)?.state ?? "open",
+      );
       const output = renderSP(sp, (uuid) => {
         const a = actionMap.get(uuid);
         return a ? formatActionLabel(a, annotations) : uuid;
