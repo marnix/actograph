@@ -83,7 +83,7 @@ Roughly in order, but not set in stone:
 
 ## Known Issues
 
-- Extraneous command-line arguments are silently accepted; they should be rejected
+(None currently.)
 
 ## License
 
