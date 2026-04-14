@@ -64,7 +64,7 @@ npm run dev
 
 Roughly in order, but not set in stone:
 
-- **List by tag** — `acto list ++sometag` lists all actions carrying that tag, including their internal dependencies. Supporting multiple tags (`acto list ++foo ++bar`) would be nice, but open question: show actions with _both_ tags (intersection) or _either_ tag (union)?
+- **List by multiple tags** — `acto list ++foo ++bar` to filter by multiple tags. Open question: show actions with _both_ tags (intersection) or _either_ tag (union)?
 - **Tag usage in list** — `acto list --tags` shows which tags are unused; sort tags by usage count (most-used first)
 - **Action management commands** — Commands and conventions for common workflows: splitting an action into sub-actions, replacing an action with a refined version, and deadline/milestone actions (e.g., a release cut-off date that other actions must precede). Explore whether deadlines are best modeled as tag actions, regular actions with `req` edges, or something new. Include guidance on idiomatic patterns for these workflows
 - **Show single action** — `acto show <slug>` to inspect one action's full state, prerequisites, and priority relations

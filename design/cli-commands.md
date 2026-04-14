@@ -53,6 +53,7 @@ Commands for managing action state:
 
 - `acto list` — Show open/active actions in SP work order
 - `acto list -a` — Show all actions including done and skipped
+- `acto list ++tag` — Show only actions carrying the given tag
 - `acto list -t` / `acto list --tags` — Show only tag actions in SP work order
 
 State indicators in `list` output: `[ ]` Open, `[▶]` Active, `[✓]` Done, `[–]` Skipped.

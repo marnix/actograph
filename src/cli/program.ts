@@ -17,7 +17,7 @@ import {
   validateNewAction,
   editAction,
 } from "../domain/action.js";
-import { isTagTitle, missingTagActions } from "../domain/tags.js";
+import { isTagTitle, missingTagActions, parseTags } from "../domain/tags.js";
 import {
   computeWorkOrder,
   addPrerequisite,
@@ -80,73 +80,107 @@ export function createProgram(): Command {
   program
     .command("list")
     .description(
-      "List actions (open/active only; use -a for all, --tags for tag actions)",
+      "List actions (open/active only; use -a for all, --tags for tag actions, ++tag to filter by tag)",
     )
+    .argument("[tag]", "Filter by tag (e.g. ++urgent)")
     .option("-a, --all", "Show all actions including done and skipped")
     .option("-t, --tags", "Show only tag actions")
-    .action((opts: { all?: boolean; tags?: boolean }) => {
-      const adapter = new AutomergeAdapter(dbPath());
-      // One-time migration: create missing tag actions
-      adapter.transact(({ actions, priorities }) => {
-        const before = actions.length;
-        autoCreateMissingTags(actions);
-        if (actions.length > before) {
-          console.error(
-            `Migrated: created ${actions.length - before} missing tag action(s)`,
-          );
-        }
-        return { actions, priorities };
-      });
-      const actions = adapter.load();
-      const priorities = adapter.loadPriorities();
-      adapter.close();
+    .action(
+      (tag: string | undefined, opts: { all?: boolean; tags?: boolean }) => {
+        const adapter = new AutomergeAdapter(dbPath());
+        // One-time migration: create missing tag actions
+        adapter.transact(({ actions, priorities }) => {
+          const before = actions.length;
+          autoCreateMissingTags(actions);
+          if (actions.length > before) {
+            console.error(
+              `Migrated: created ${actions.length - before} missing tag action(s)`,
+            );
+          }
+          return { actions, priorities };
+        });
+        const actions = adapter.load();
+        const priorities = adapter.loadPriorities();
+        adapter.close();
 
-      if (opts.tags) {
-        const tagActions = actions.filter((a) => isTagTitle(a.title));
-        if (tagActions.length === 0) {
-          console.log("No tag actions.");
+        if (tag !== undefined) {
+          if (!tag.startsWith("++")) {
+            console.error(`Tag filter must start with ++ (got "${tag}")`);
+            process.exit(1);
+          }
+          const tagged = actions.filter(
+            (a) =>
+              !isTagTitle(a.title) && parseTags(a.title).includes(tag.slice(2)),
+          );
+          const filtered = opts.all
+            ? tagged
+            : tagged.filter((a) => a.state === "open" || a.state === "active");
+          if (filtered.length === 0) {
+            console.log(`No actions with tag ${tag}.`);
+            return;
+          }
+          const annotations = buildAnnotations(filtered, actions, priorities);
+          const actionMap = new Map(filtered.map((a) => [a.uuid, a]));
+          const graph = computeWorkOrder(filtered, priorities, actions);
+          const sp = sortSP(
+            spDecompose(graph),
+            (uuid) => actionMap.get(uuid)?.state ?? "open",
+          );
+          const output = renderSP(sp, (uuid) => {
+            const a = actionMap.get(uuid);
+            return a ? formatActionLabel(a, annotations) : uuid;
+          });
+          console.log(output);
           return;
         }
-        const annotations = buildAnnotations(
-          tagActions,
-          tagActions,
-          priorities,
+
+        if (opts.tags) {
+          const tagActions = actions.filter((a) => isTagTitle(a.title));
+          if (tagActions.length === 0) {
+            console.log("No tag actions.");
+            return;
+          }
+          const annotations = buildAnnotations(
+            tagActions,
+            tagActions,
+            priorities,
+          );
+          const graph = computeWorkOrder(tagActions, priorities);
+          const sp = spDecompose(graph);
+          const tagMap = new Map(tagActions.map((a) => [a.uuid, a]));
+          const output = renderSP(sp, (uuid) => {
+            const a = tagMap.get(uuid);
+            return a ? formatTagLabel(a, annotations) : uuid;
+          });
+          console.log(output);
+          return;
+        }
+
+        const visible = opts.all
+          ? actions.filter((a) => !isTagTitle(a.title))
+          : actions.filter(
+              (a) =>
+                !isTagTitle(a.title) &&
+                (a.state === "open" || a.state === "active"),
+            );
+        if (visible.length === 0) {
+          console.log(opts.all ? "No actions." : "No open/active actions.");
+          return;
+        }
+        const annotations = buildAnnotations(visible, actions, priorities);
+        const actionMap = new Map(visible.map((a) => [a.uuid, a]));
+        const graph = computeWorkOrder(visible, priorities, actions);
+        const sp = sortSP(
+          spDecompose(graph),
+          (uuid) => actionMap.get(uuid)?.state ?? "open",
         );
-        const graph = computeWorkOrder(tagActions, priorities);
-        const sp = spDecompose(graph);
-        const tagMap = new Map(tagActions.map((a) => [a.uuid, a]));
         const output = renderSP(sp, (uuid) => {
-          const a = tagMap.get(uuid);
-          return a ? formatTagLabel(a, annotations) : uuid;
+          const a = actionMap.get(uuid);
+          return a ? formatActionLabel(a, annotations) : uuid;
         });
         console.log(output);
-        return;
-      }
-
-      const visible = opts.all
-        ? actions.filter((a) => !isTagTitle(a.title))
-        : actions.filter(
-            (a) =>
-              !isTagTitle(a.title) &&
-              (a.state === "open" || a.state === "active"),
-          );
-      if (visible.length === 0) {
-        console.log(opts.all ? "No actions." : "No open/active actions.");
-        return;
-      }
-      const annotations = buildAnnotations(visible, actions, priorities);
-      const actionMap = new Map(visible.map((a) => [a.uuid, a]));
-      const graph = computeWorkOrder(visible, priorities, actions);
-      const sp = sortSP(
-        spDecompose(graph),
-        (uuid) => actionMap.get(uuid)?.state ?? "open",
-      );
-      const output = renderSP(sp, (uuid) => {
-        const a = actionMap.get(uuid);
-        return a ? formatActionLabel(a, annotations) : uuid;
-      });
-      console.log(output);
-    });
+      },
+    );
 
   program
     .command("do")
