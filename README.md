@@ -64,7 +64,6 @@ npm run dev
 
 Roughly in order, but not set in stone:
 
-- **Edit action title** — `acto edit <id>` opens the current title for inline editing using `node:readline/promises` (built-in, no extra dependency). Also a single-command form: `acto edit <slug> <new-title>`. Adding or removing `++tag` tokens in the title should automatically update the work order (tag inheritance is computed dynamically, so this should work out of the box). Attention point: verify that changing tags on an action correctly adjusts its position in the work order
 - **Parallel action sorting** — When actions are parallel in the work order (no ordering between them), sort by state (active → open → done → skipped), then within each state group by least-recently-touched first (so older actions float to the top and are harder to forget)
 - **Auto-add tags** — Adding an action with an unknown `++tag` automatically creates the tag action. A one-time migration adds tag actions retroactively for all existing tags that lack one
 - **Show slug on create** — `acto do` prints the slug of the newly created action, so it can immediately be used with e.g. `acto go`

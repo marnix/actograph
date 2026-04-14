@@ -44,7 +44,7 @@ actograph/
 
 ## Adding New Commands
 
-Commands are defined in `src/index.ts` using Commander:
+Commands are defined in `src/cli/program.ts` using Commander:
 
 ```typescript
 program
@@ -54,6 +54,11 @@ program
     // Implementation
   });
 ```
+
+## Documentation
+
+- The **Roadmap / Ideas** section in `README.md` must be kept up-to-date: remove items when implemented, add new ideas as they arise.
+- **Design documents** in `design/` should be extended when different decisions are taken from what was originally documented.
 
 ## Architecture
 
