@@ -24,3 +24,17 @@ export function tagName(title: string): string | undefined {
   const m = title.match(/^\s*\+\+(\w+)\s*$/);
   return m ? m[1] : undefined;
 }
+
+/** Return tag titles (e.g. "++foo") referenced in `title` that have no tag action in `actions`. */
+export function missingTagActions(
+  title: string,
+  actions: { title: string }[],
+): string[] {
+  if (isTagTitle(title)) return [];
+  const existing = new Set(
+    actions.filter((a) => isTagTitle(a.title)).map((a) => a.title.trim()),
+  );
+  return parseTags(title)
+    .map((t) => `++${t}`)
+    .filter((t) => !existing.has(t));
+}

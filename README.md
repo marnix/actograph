@@ -64,7 +64,6 @@ npm run dev
 
 Roughly in order, but not set in stone:
 
-- **Auto-add tags** — Adding an action with an unknown `++tag` automatically creates the tag action. A one-time migration adds tag actions retroactively for all existing tags that lack one
 - **Show slug on create** — `acto do` prints the slug of the newly created action, so it can immediately be used with e.g. `acto go`
 - **Interactive do** — `acto do` with no arguments interactively creates a new action (similar to `acto edit`'s interactive mode)
 - **List by tag** — `acto list ++sometag` lists all actions carrying that tag, including their internal dependencies. Supporting multiple tags (`acto list ++foo ++bar`) would be nice, but open question: show actions with _both_ tags (intersection) or _either_ tag (union)?

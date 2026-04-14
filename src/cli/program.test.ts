@@ -118,3 +118,33 @@ describe("CLI parallel action sorting", () => {
     );
   });
 });
+
+describe("CLI auto-add tags", () => {
+  let dataDir: string;
+
+  beforeEach(() => {
+    dataDir = mkdtempSync(join(tmpdir(), "acto-tags-"));
+  });
+
+  afterEach(() => {
+    rmSync(dataDir, { recursive: true, force: true });
+  });
+
+  it("creates tag action when adding action with unknown tag", async () => {
+    await testProgram("--data-dir", dataDir, "do", "Fix bug ++urgent");
+    const output = await captureStdout(() =>
+      testProgram("--data-dir", dataDir, "list", "--tags"),
+    );
+    expect(output).toContain("++urgent");
+  });
+
+  it("does not duplicate existing tag action", async () => {
+    await testProgram("--data-dir", dataDir, "do", "Fix bug ++urgent");
+    await testProgram("--data-dir", dataDir, "do", "Other ++urgent");
+    const output = await captureStdout(() =>
+      testProgram("--data-dir", dataDir, "list", "--tags"),
+    );
+    const matches = output.match(/\+\+urgent/g);
+    expect(matches).toHaveLength(1);
+  });
+});

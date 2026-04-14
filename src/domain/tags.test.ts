@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseTags, isTagTitle, tagName } from "./tags.js";
+import { parseTags, isTagTitle, tagName, missingTagActions } from "./tags.js";
 
 describe("parseTags", () => {
   it("returns empty for plain title", () => {
@@ -48,5 +48,34 @@ describe("tagName", () => {
 
   it("returns undefined for non-tag title", () => {
     expect(tagName("Fix login ++urgent")).toBeUndefined();
+  });
+});
+
+describe("missingTagActions", () => {
+  it("returns missing tag titles", () => {
+    expect(missingTagActions("Fix ++urgent ++later", [])).toEqual([
+      "++urgent",
+      "++later",
+    ]);
+  });
+
+  it("excludes tags that already have a tag action", () => {
+    const actions = [{ title: "++urgent" }];
+    expect(missingTagActions("Fix ++urgent ++later", actions)).toEqual([
+      "++later",
+    ]);
+  });
+
+  it("returns empty for tag-only titles", () => {
+    expect(missingTagActions("++urgent", [])).toEqual([]);
+  });
+
+  it("returns empty when no tags in title", () => {
+    expect(missingTagActions("Fix bug", [])).toEqual([]);
+  });
+
+  it("returns empty when all tags exist", () => {
+    const actions = [{ title: "++urgent" }, { title: "++later" }];
+    expect(missingTagActions("Fix ++urgent ++later", actions)).toEqual([]);
   });
 });
