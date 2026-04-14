@@ -167,3 +167,49 @@ describe("CLI show slug on create", () => {
     expect(output).toMatch(/^Added: "Test task" \(\w{7}\)$/);
   });
 });
+
+describe("CLI interactive do", () => {
+  let dataDir: string;
+
+  beforeEach(() => {
+    dataDir = mkdtempSync(join(tmpdir(), "acto-ido-"));
+  });
+
+  afterEach(() => {
+    rmSync(dataDir, { recursive: true, force: true });
+  });
+
+  it("creates action when title is provided as argument", async () => {
+    const output = await captureStdout(() =>
+      testProgram("--data-dir", dataDir, "do", "My task"),
+    );
+    expect(output).toMatch(/^Added: "My task" \(\w{7}\)$/);
+  });
+
+  it("prompts and creates action when no title given", async () => {
+    // Simulate stdin by providing input via a Readable stream
+    const { Readable } = await import("stream");
+    const mockStdin = new Readable({ read() {} });
+    const origStdin = process.stdin;
+    Object.defineProperty(process, "stdin", {
+      value: mockStdin,
+      writable: true,
+    });
+    try {
+      const promise = captureStdout(() =>
+        testProgram("--data-dir", dataDir, "do"),
+      );
+      // Feed the title after a tick (readline needs to be listening)
+      await new Promise((r) => setTimeout(r, 10));
+      mockStdin.push("Interactive task\n");
+      mockStdin.push(null);
+      const output = await promise;
+      expect(output).toMatch(/^Added: "Interactive task" \(\w{7}\)$/);
+    } finally {
+      Object.defineProperty(process, "stdin", {
+        value: origStdin,
+        writable: true,
+      });
+    }
+  });
+});
