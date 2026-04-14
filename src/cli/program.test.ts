@@ -148,3 +148,22 @@ describe("CLI auto-add tags", () => {
     expect(matches).toHaveLength(1);
   });
 });
+
+describe("CLI show slug on create", () => {
+  let dataDir: string;
+
+  beforeEach(() => {
+    dataDir = mkdtempSync(join(tmpdir(), "acto-slug-"));
+  });
+
+  afterEach(() => {
+    rmSync(dataDir, { recursive: true, force: true });
+  });
+
+  it("prints the slug when creating an action", async () => {
+    const output = await captureStdout(() =>
+      testProgram("--data-dir", dataDir, "do", "Test task"),
+    );
+    expect(output).toMatch(/^Added: "Test task" \(\w{7}\)$/);
+  });
+});

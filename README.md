@@ -64,7 +64,6 @@ npm run dev
 
 Roughly in order, but not set in stone:
 
-- **Show slug on create** — `acto do` prints the slug of the newly created action, so it can immediately be used with e.g. `acto go`
 - **Interactive do** — `acto do` with no arguments interactively creates a new action (similar to `acto edit`'s interactive mode)
 - **List by tag** — `acto list ++sometag` lists all actions carrying that tag, including their internal dependencies. Supporting multiple tags (`acto list ++foo ++bar`) would be nice, but open question: show actions with _both_ tags (intersection) or _either_ tag (union)?
 - **Tag usage in list** — `acto list --tags` shows which tags are unused; sort tags by usage count (most-used first)
