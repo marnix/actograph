@@ -64,7 +64,6 @@ npm run dev
 
 Roughly in order, but not set in stone:
 
-- **Parallel action sorting** — When actions are parallel in the work order (no ordering between them), sort by state (active → open → done → skipped), then within each state group by least-recently-touched first (so older actions float to the top and are harder to forget)
 - **Auto-add tags** — Adding an action with an unknown `++tag` automatically creates the tag action. A one-time migration adds tag actions retroactively for all existing tags that lack one
 - **Show slug on create** — `acto do` prints the slug of the newly created action, so it can immediately be used with e.g. `acto go`
 - **Interactive do** — `acto do` with no arguments interactively creates a new action (similar to `acto edit`'s interactive mode)
@@ -82,7 +81,7 @@ Roughly in order, but not set in stone:
 
 ## Known Issues
 
-(None currently.)
+- `slug` is optional in `ActionRecord` (automerge adapter) — investigate whether this can be made required to align with the domain `Action` type
 
 ## License
 
