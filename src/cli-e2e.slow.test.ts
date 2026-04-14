@@ -21,7 +21,7 @@ function run(
   });
 }
 
-describe("CLI: state command on tag action (single process)", () => {
+describe("CLI end-to-end (subprocess)", () => {
   let dataDir: string;
 
   beforeEach(async () => {
