@@ -151,9 +151,29 @@ export function createProgram(): Command {
   program
     .command("do")
     .description("Add a new action")
-    .argument("<title>", "Action title")
-    .action((title: string) => {
+    .argument("[title]", "Action title (interactive if omitted)")
+    .action(async (title?: string) => {
       const adapter = new AutomergeAdapter(dbPath());
+      if (title === undefined) {
+        const rl = createInterface({
+          input: process.stdin,
+          output: process.stdout,
+        });
+        try {
+          title = await rl.question("Title: ");
+        } catch {
+          console.log("\nCancelled.");
+          adapter.close();
+          return;
+        } finally {
+          rl.close();
+        }
+        if (!title.trim()) {
+          console.log("Empty title, cancelled.");
+          adapter.close();
+          return;
+        }
+      }
       adapter.transact(({ actions, priorities }) => {
         try {
           validateNewAction(title, actions);
