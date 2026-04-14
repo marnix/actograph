@@ -161,15 +161,10 @@ export function createProgram(): Command {
           console.error((e as Error).message);
           process.exit(1);
         }
-        actions.push(
-          createAction(
-            randomUUID(),
-            generateSlug((s) => actions.every((a) => a.slug !== s)),
-            title,
-          ),
-        );
+        const slug = generateSlug((s) => actions.every((a) => a.slug !== s));
+        actions.push(createAction(randomUUID(), slug, title));
         autoCreateMissingTags(actions);
-        console.log(`Added: "${title}" (${actions.length} actions total)`);
+        console.log(`Added: "${title}" (${slug})`);
         return { actions, priorities };
       });
       adapter.close();
