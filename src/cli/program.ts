@@ -17,7 +17,11 @@ import {
   validateNewAction,
   editAction,
 } from "../domain/action.js";
-import { isTagTitle, missingTagActions, parseTags } from "../domain/tags.js";
+import {
+  isTagTitle,
+  parseTags,
+  createMissingTagActions,
+} from "../domain/tags.js";
 import {
   computeWorkOrder,
   addPrerequisite,
@@ -56,23 +60,13 @@ export function createProgram(): Command {
     return join(resolveDataDir(), "actograph.automerge");
   }
 
-  /** Create tag actions for all tags referenced in any action title but missing a tag action. */
-  function autoCreateMissingTags(actions: Action[]): void {
-    const seen = new Set<string>();
-    for (const a of actions) {
-      for (const tag of missingTagActions(a.title, actions)) {
-        if (!seen.has(tag)) {
-          seen.add(tag);
-          actions.push(
-            createAction(
-              randomUUID(),
-              generateSlug((s) => actions.every((x) => x.slug !== s)),
-              tag,
-            ),
-          );
-        }
-      }
-    }
+  /** Create a new action with a generated UUID and slug. */
+  function newAction(title: string, actions: Action[]): Action {
+    return createAction(
+      randomUUID(),
+      generateSlug((s) => actions.every((a) => a.slug !== s)),
+      title,
+    );
   }
 
   // --- Work ---
@@ -91,7 +85,7 @@ export function createProgram(): Command {
         // One-time migration: create missing tag actions
         adapter.transact(({ actions, priorities }) => {
           const before = actions.length;
-          autoCreateMissingTags(actions);
+          createMissingTagActions(actions, (t) => newAction(t, actions));
           if (actions.length > before) {
             console.error(
               `Migrated: created ${actions.length - before} missing tag action(s)`,
@@ -209,10 +203,10 @@ export function createProgram(): Command {
       }
       adapter.transact(({ actions, priorities }) => {
         validateNewAction(title, actions);
-        const slug = generateSlug((s) => actions.every((a) => a.slug !== s));
-        actions.push(createAction(randomUUID(), slug, title));
-        autoCreateMissingTags(actions);
-        console.log(`Added: "${title}" (${slug})`);
+        const added = newAction(title, actions);
+        actions.push(added);
+        createMissingTagActions(actions, (t) => newAction(t, actions));
+        console.log(`Added: "${title}" (${added.slug})`);
         return { actions, priorities };
       });
       adapter.close();
@@ -229,7 +223,7 @@ export function createProgram(): Command {
         adapter.transact(({ actions, priorities }) => {
           const action = findAction(actions, slugPrefix);
           editAction(action, newTitle);
-          autoCreateMissingTags(actions);
+          createMissingTagActions(actions, (t) => newAction(t, actions));
           console.log(`Edited: "${action.title}"`);
           return { actions, priorities };
         });
@@ -267,7 +261,7 @@ export function createProgram(): Command {
         adapter.transact(({ actions: acts, priorities }) => {
           const a = findAction(acts, slugPrefix);
           editAction(a, edited);
-          autoCreateMissingTags(acts);
+          createMissingTagActions(acts, (t) => newAction(t, acts));
           console.log(`Edited: "${a.title}"`);
           return { actions: acts, priorities };
         });
