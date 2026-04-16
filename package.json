@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "npm run typecheck && npm run format:check && npm test",
+    "check": "concurrently --success all 'npm:typecheck' 'npm:format:check' 'npm:test'",
     "ci": "npm run build:verify && npm run check",
     "clean": "rm -rf dist"
   },
@@ -25,6 +25,7 @@
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
+    "concurrently": "^9.1.2",
     "prettier": "^3.8.3",
     "typescript": "^6.0.2",
     "vitest": "^4.1.4"
