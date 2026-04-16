@@ -75,6 +75,7 @@ Roughly in order, but not set in stone:
 - **Terminal UI** — Interactive terminal interface (consider [Ink](https://github.com/vadimdemedes/ink) for React-based Node.js TUI)
 - **Web UI** — Browser-based interface
 - **Multi-user/team collaboration**
+- **Global install from GitHub** — Enable `npm install -g github:marnix/actograph` (or from a local clone via `npm install -g /path/to/clone`). Installs the package into npm's global `node_modules` and symlinks the `bin` entry onto PATH (e.g. `~/.local/bin/acto` if npm prefix is `~/.local`, configurable via `npm config set prefix '~/.local'`). Requires: `"prepare": "npm run build"` script so TypeScript compiles on install, `"bin"` entry in `package.json` pointing to `dist/index.js`, and a `#!/usr/bin/env node` shebang in the entry point
 
 ## Known Issues
 

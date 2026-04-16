@@ -123,6 +123,11 @@ program
 - Run `npm run check` before committing (runs typecheck, format check, and tests)
 - Run `npm run ci` to simulate CI locally (check + build)
 
+## Dependency Management
+
+- Dependabot is enabled for npm and GitHub Actions, checking weekly
+- PRs are created automatically and run CI before merge
+
 ## Technology Stack
 
 - **Automerge (@automerge/automerge)** - CRDT-based local-first storage
