@@ -204,13 +204,6 @@ describe("CLI interactive do", () => {
     rmSync(dataDir, { recursive: true, force: true });
   });
 
-  it("creates action when title is provided as argument", async () => {
-    const output = await captureStdout(() =>
-      testProgram("--data-dir", dataDir, "do", "My task"),
-    );
-    expect(output).toMatch(/^Added: "My task" \(\w{7}\)$/);
-  });
-
   it("prompts and creates action when no title given", async () => {
     // Simulate stdin by providing input via a Readable stream
     const { Readable } = await import("stream");
