@@ -38,3 +38,25 @@ export function missingTagActions(
     .map((t) => `++${t}`)
     .filter((t) => !existing.has(t));
 }
+
+/**
+ * Create tag actions for all tags referenced in any action title but
+ * missing a tag action. Returns the titles of created tag actions.
+ */
+export function createMissingTagActions<T extends { title: string }>(
+  actions: T[],
+  factory: (title: string) => T,
+): string[] {
+  const created: string[] = [];
+  const seen = new Set<string>();
+  for (const a of [...actions]) {
+    for (const tag of missingTagActions(a.title, actions)) {
+      if (!seen.has(tag)) {
+        seen.add(tag);
+        actions.push(factory(tag));
+        created.push(tag);
+      }
+    }
+  }
+  return created;
+}

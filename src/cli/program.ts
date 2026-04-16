@@ -6,18 +6,24 @@ import { randomUUID } from "crypto";
 import { generateSlug } from "../domain/action-id.js";
 import { findAction } from "./find-action.js";
 import {
+  type Annotations,
   buildAnnotations,
   formatActionLabel,
   formatTagLabel,
 } from "./list-format.js";
 import type { Action, ActionState } from "../domain/action.js";
+import type { Priority } from "../domain/priority.js";
 import {
   transitionAction,
   createAction,
   validateNewAction,
   editAction,
 } from "../domain/action.js";
-import { isTagTitle, missingTagActions, parseTags } from "../domain/tags.js";
+import {
+  isTagTitle,
+  parseTags,
+  createMissingTagActions,
+} from "../domain/tags.js";
 import {
   computeWorkOrder,
   addPrerequisite,
@@ -56,23 +62,34 @@ export function createProgram(): Command {
     return join(resolveDataDir(), "actograph.automerge");
   }
 
-  /** Create tag actions for all tags referenced in any action title but missing a tag action. */
-  function autoCreateMissingTags(actions: Action[]): void {
-    const seen = new Set<string>();
-    for (const a of actions) {
-      for (const tag of missingTagActions(a.title, actions)) {
-        if (!seen.has(tag)) {
-          seen.add(tag);
-          actions.push(
-            createAction(
-              randomUUID(),
-              generateSlug((s) => actions.every((x) => x.slug !== s)),
-              tag,
-            ),
-          );
-        }
-      }
+  /** Create a new action with a generated UUID and slug. */
+  function newAction(title: string, actions: Action[]): Action {
+    return createAction(
+      randomUUID(),
+      generateSlug((s) => actions.every((a) => a.slug !== s)),
+      title,
+    );
+  }
+
+  /** Render a list of actions as an SP tree. */
+  function renderActionList(
+    visible: Action[],
+    allActions: Action[],
+    priorities: Priority[],
+    labelFn: (a: Action, ann: Annotations) => string,
+    sort: boolean,
+  ): string {
+    const annotations = buildAnnotations(visible, allActions, priorities);
+    const actionMap = new Map(visible.map((a) => [a.uuid, a]));
+    const graph = computeWorkOrder(visible, priorities, allActions);
+    let sp = spDecompose(graph);
+    if (sort) {
+      sp = sortSP(sp, (uuid) => actionMap.get(uuid)?.state ?? "open");
     }
+    return renderSP(sp, (uuid) => {
+      const a = actionMap.get(uuid);
+      return a ? labelFn(a, annotations) : uuid;
+    });
   }
 
   // --- Work ---
@@ -91,7 +108,7 @@ export function createProgram(): Command {
         // One-time migration: create missing tag actions
         adapter.transact(({ actions, priorities }) => {
           const before = actions.length;
-          autoCreateMissingTags(actions);
+          createMissingTagActions(actions, (t) => newAction(t, actions));
           if (actions.length > before) {
             console.error(
               `Migrated: created ${actions.length - before} missing tag action(s)`,
@@ -118,18 +135,15 @@ export function createProgram(): Command {
             console.log(`No actions with tag ${tag}.`);
             return;
           }
-          const annotations = buildAnnotations(filtered, actions, priorities);
-          const actionMap = new Map(filtered.map((a) => [a.uuid, a]));
-          const graph = computeWorkOrder(filtered, priorities, actions);
-          const sp = sortSP(
-            spDecompose(graph),
-            (uuid) => actionMap.get(uuid)?.state ?? "open",
+          console.log(
+            renderActionList(
+              filtered,
+              actions,
+              priorities,
+              (a, ann) => formatActionLabel(a, ann),
+              true,
+            ),
           );
-          const output = renderSP(sp, (uuid) => {
-            const a = actionMap.get(uuid);
-            return a ? formatActionLabel(a, annotations) : uuid;
-          });
-          console.log(output);
           return;
         }
 
@@ -139,19 +153,15 @@ export function createProgram(): Command {
             console.log("No tag actions.");
             return;
           }
-          const annotations = buildAnnotations(
-            tagActions,
-            tagActions,
-            priorities,
+          console.log(
+            renderActionList(
+              tagActions,
+              tagActions,
+              priorities,
+              (a, ann) => formatTagLabel(a, ann),
+              false,
+            ),
           );
-          const graph = computeWorkOrder(tagActions, priorities);
-          const sp = spDecompose(graph);
-          const tagMap = new Map(tagActions.map((a) => [a.uuid, a]));
-          const output = renderSP(sp, (uuid) => {
-            const a = tagMap.get(uuid);
-            return a ? formatTagLabel(a, annotations) : uuid;
-          });
-          console.log(output);
           return;
         }
 
@@ -166,18 +176,15 @@ export function createProgram(): Command {
           console.log(opts.all ? "No actions." : "No open/active actions.");
           return;
         }
-        const annotations = buildAnnotations(visible, actions, priorities);
-        const actionMap = new Map(visible.map((a) => [a.uuid, a]));
-        const graph = computeWorkOrder(visible, priorities, actions);
-        const sp = sortSP(
-          spDecompose(graph),
-          (uuid) => actionMap.get(uuid)?.state ?? "open",
+        console.log(
+          renderActionList(
+            visible,
+            actions,
+            priorities,
+            (a, ann) => formatActionLabel(a, ann),
+            true,
+          ),
         );
-        const output = renderSP(sp, (uuid) => {
-          const a = actionMap.get(uuid);
-          return a ? formatActionLabel(a, annotations) : uuid;
-        });
-        console.log(output);
       },
     );
 
@@ -209,10 +216,10 @@ export function createProgram(): Command {
       }
       adapter.transact(({ actions, priorities }) => {
         validateNewAction(title, actions);
-        const slug = generateSlug((s) => actions.every((a) => a.slug !== s));
-        actions.push(createAction(randomUUID(), slug, title));
-        autoCreateMissingTags(actions);
-        console.log(`Added: "${title}" (${slug})`);
+        const added = newAction(title, actions);
+        actions.push(added);
+        createMissingTagActions(actions, (t) => newAction(t, actions));
+        console.log(`Added: "${title}" (${added.slug})`);
         return { actions, priorities };
       });
       adapter.close();
@@ -229,7 +236,7 @@ export function createProgram(): Command {
         adapter.transact(({ actions, priorities }) => {
           const action = findAction(actions, slugPrefix);
           editAction(action, newTitle);
-          autoCreateMissingTags(actions);
+          createMissingTagActions(actions, (t) => newAction(t, actions));
           console.log(`Edited: "${action.title}"`);
           return { actions, priorities };
         });
@@ -267,7 +274,7 @@ export function createProgram(): Command {
         adapter.transact(({ actions: acts, priorities }) => {
           const a = findAction(acts, slugPrefix);
           editAction(a, edited);
-          autoCreateMissingTags(acts);
+          createMissingTagActions(acts, (t) => newAction(t, acts));
           console.log(`Edited: "${a.title}"`);
           return { actions: acts, priorities };
         });
@@ -311,93 +318,65 @@ export function createProgram(): Command {
 
   // --- Ordering ---
 
-  program
-    .command("req")
-    .description(
-      "Set prerequisites: acto req A B C means A is required by B, B is required by C",
-    )
-    .argument("<slugs...>", "Action slugs (or prefixes) in work order")
-    .action((slugs: string[]) => {
-      if (slugs.length < 2) {
-        throw new Error("Need at least two action slugs");
-      }
-      const adapter = new AutomergeAdapter(dbPath());
-      adapter.transact(({ actions, priorities }) => {
-        const resolved = slugs.map((prefix) => findAction(actions, prefix));
-        resolved.reduce((prev, curr) => {
-          addPrerequisite(actions, priorities, prev.uuid, curr.uuid);
-          return curr;
+  function orderingCommand(
+    name: string,
+    description: string,
+    applyEdge: (
+      actions: Action[],
+      priorities: Priority[],
+      fromUuid: string,
+      toUuid: string,
+    ) => void,
+    label: string,
+  ): void {
+    program
+      .command(name)
+      .description(description)
+      .argument("<slugs...>", "Action slugs (or prefixes)")
+      .action((slugs: string[]) => {
+        if (slugs.length < 2) {
+          throw new Error("Need at least two action slugs");
+        }
+        const adapter = new AutomergeAdapter(dbPath());
+        adapter.transact(({ actions, priorities }) => {
+          const resolved = slugs.map((prefix) => findAction(actions, prefix));
+          resolved.reduce((prev, curr) => {
+            applyEdge(actions, priorities, prev.uuid, curr.uuid);
+            return curr;
+          });
+          console.log(label);
+          return { actions, priorities };
         });
-        console.log(`Added prerequisite(s)`);
-        return { actions, priorities };
+        adapter.close();
       });
-      adapter.close();
-    });
+  }
 
-  program
-    .command("prio")
-    .description(
-      "Set priorities: acto prio A B C means A has priority over B, B has priority over C",
-    )
-    .argument("<slugs...>", "Action slugs (or prefixes) in priority order")
-    .action((slugs: string[]) => {
-      if (slugs.length < 2) {
-        throw new Error("Need at least two action slugs");
-      }
-      const adapter = new AutomergeAdapter(dbPath());
-      adapter.transact(({ actions, priorities }) => {
-        const resolved = slugs.map((prefix) => findAction(actions, prefix));
-        resolved.reduce((prev, curr) => {
-          addPriority(actions, priorities, prev.uuid, curr.uuid);
-          return curr;
-        });
-        console.log(`Added priority relation(s)`);
-        return { actions, priorities };
-      });
-      adapter.close();
-    });
-
-  program
-    .command("unreq")
-    .description("Remove prerequisites: acto unreq A B C removes A→B and B→C")
-    .argument("<slugs...>", "Action slugs (or prefixes) in work order")
-    .action((slugs: string[]) => {
-      if (slugs.length < 2) {
-        throw new Error("Need at least two action slugs");
-      }
-      const adapter = new AutomergeAdapter(dbPath());
-      adapter.transact(({ actions, priorities }) => {
-        const resolved = slugs.map((prefix) => findAction(actions, prefix));
-        resolved.reduce((prev, curr) => {
-          removePrerequisite(actions, prev.uuid, curr.uuid);
-          return curr;
-        });
-        console.log(`Removed prerequisite(s)`);
-        return { actions, priorities };
-      });
-      adapter.close();
-    });
-
-  program
-    .command("unprio")
-    .description("Remove priorities: acto unprio A B C removes A>B and B>C")
-    .argument("<slugs...>", "Action slugs (or prefixes) in priority order")
-    .action((slugs: string[]) => {
-      if (slugs.length < 2) {
-        throw new Error("Need at least two action slugs");
-      }
-      const adapter = new AutomergeAdapter(dbPath());
-      adapter.transact(({ actions, priorities }) => {
-        const resolved = slugs.map((prefix) => findAction(actions, prefix));
-        resolved.reduce((prev, curr) => {
-          removePriority(priorities, prev.uuid, curr.uuid);
-          return curr;
-        });
-        console.log(`Removed priority relation(s)`);
-        return { actions, priorities };
-      });
-      adapter.close();
-    });
+  orderingCommand(
+    "req",
+    "Set prerequisites: acto req A B C means A is required by B, B is required by C",
+    (actions, priorities, from, to) =>
+      addPrerequisite(actions, priorities, from, to),
+    "Added prerequisite(s)",
+  );
+  orderingCommand(
+    "prio",
+    "Set priorities: acto prio A B C means A has priority over B, B has priority over C",
+    (actions, priorities, from, to) =>
+      addPriority(actions, priorities, from, to),
+    "Added priority relation(s)",
+  );
+  orderingCommand(
+    "unreq",
+    "Remove prerequisites: acto unreq A B C removes A→B and B→C",
+    (actions, _priorities, from, to) => removePrerequisite(actions, from, to),
+    "Removed prerequisite(s)",
+  );
+  orderingCommand(
+    "unprio",
+    "Remove priorities: acto unprio A B C removes A>B and B>C",
+    (_actions, priorities, from, to) => removePriority(priorities, from, to),
+    "Removed priority relation(s)",
+  );
 
   return program;
 }

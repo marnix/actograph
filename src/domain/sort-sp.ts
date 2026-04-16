@@ -25,7 +25,7 @@ function minStateRank(
   return Math.min(...node.children.map((c) => minStateRank(c, stateOf)));
 }
 
-/** Sort parallel children in-place, recursively, throughout the SP tree. */
+/** Sort parallel children by state, recursively. Returns a new tree. */
 export function sortSP(
   node: SPNode,
   stateOf: (id: string) => ActionState,

@@ -4,21 +4,30 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { createProgram } from "./program.js";
 
-function testProgram(...args: string[]) {
+function setupProgram(writeErr: (s: string) => void = () => {}) {
   const program = createProgram();
   program.exitOverride();
-  program.configureOutput({
-    writeErr: () => {},
-    writeOut: () => {},
-  });
+  program.configureOutput({ writeErr, writeOut: () => {} });
   for (const cmd of program.commands) {
     cmd.exitOverride();
-    cmd.configureOutput({
-      writeErr: () => {},
-      writeOut: () => {},
-    });
+    cmd.configureOutput({ writeErr, writeOut: () => {} });
   }
-  return program.parseAsync(["node", "acto", ...args]);
+  return program;
+}
+
+function runProgram(...args: string[]) {
+  return setupProgram().parseAsync(["node", "acto", ...args]);
+}
+
+function testProgram(...args: string[]) {
+  const origLog = console.log;
+  const origErr = console.error;
+  console.log = () => {};
+  console.error = () => {};
+  return runProgram(...args).finally(() => {
+    console.log = origLog;
+    console.error = origErr;
+  });
 }
 
 function testProgramStderr(...args: string[]): {
@@ -26,19 +35,7 @@ function testProgramStderr(...args: string[]): {
   stderr: () => string;
 } {
   const lines: string[] = [];
-  const program = createProgram();
-  program.exitOverride();
-  program.configureOutput({
-    writeErr: (s) => lines.push(s),
-    writeOut: () => {},
-  });
-  for (const cmd of program.commands) {
-    cmd.exitOverride();
-    cmd.configureOutput({
-      writeErr: (s) => lines.push(s),
-      writeOut: () => {},
-    });
-  }
+  const program = setupProgram((s) => lines.push(s));
   return {
     promise: program.parseAsync(["node", "acto", ...args]),
     stderr: () => lines.join(""),
@@ -119,7 +116,7 @@ describe("CLI parallel action sorting", () => {
   it("lists active actions before open actions", async () => {
     // Find the slug for Beta by capturing list -a output
     const allOutput = await captureStdout(() =>
-      testProgram("--data-dir", dataDir, "list", "-a"),
+      runProgram("--data-dir", dataDir, "list", "-a"),
     );
     const betaMatch = allOutput.match(/Beta task\s+\((\w+)\)/);
     expect(betaMatch).not.toBeNull();
@@ -129,7 +126,7 @@ describe("CLI parallel action sorting", () => {
     await testProgram("--data-dir", dataDir, "go", betaSlug);
 
     const output = await captureStdout(() =>
-      testProgram("--data-dir", dataDir, "list"),
+      runProgram("--data-dir", dataDir, "list"),
     );
     const lines = output.trim().split("\n");
     const titles = lines
@@ -158,7 +155,7 @@ describe("CLI auto-add tags", () => {
   it("creates tag action when adding action with unknown tag", async () => {
     await testProgram("--data-dir", dataDir, "do", "Fix bug ++urgent");
     const output = await captureStdout(() =>
-      testProgram("--data-dir", dataDir, "list", "--tags"),
+      runProgram("--data-dir", dataDir, "list", "--tags"),
     );
     expect(output).toContain("++urgent");
   });
@@ -167,7 +164,7 @@ describe("CLI auto-add tags", () => {
     await testProgram("--data-dir", dataDir, "do", "Fix bug ++urgent");
     await testProgram("--data-dir", dataDir, "do", "Other ++urgent");
     const output = await captureStdout(() =>
-      testProgram("--data-dir", dataDir, "list", "--tags"),
+      runProgram("--data-dir", dataDir, "list", "--tags"),
     );
     const matches = output.match(/\+\+urgent/g);
     expect(matches).toHaveLength(1);
@@ -187,7 +184,7 @@ describe("CLI show slug on create", () => {
 
   it("prints the slug when creating an action", async () => {
     const output = await captureStdout(() =>
-      testProgram("--data-dir", dataDir, "do", "Test task"),
+      runProgram("--data-dir", dataDir, "do", "Test task"),
     );
     expect(output).toMatch(/^Added: "Test task" \(\w{7}\)$/);
   });
@@ -204,13 +201,6 @@ describe("CLI interactive do", () => {
     rmSync(dataDir, { recursive: true, force: true });
   });
 
-  it("creates action when title is provided as argument", async () => {
-    const output = await captureStdout(() =>
-      testProgram("--data-dir", dataDir, "do", "My task"),
-    );
-    expect(output).toMatch(/^Added: "My task" \(\w{7}\)$/);
-  });
-
   it("prompts and creates action when no title given", async () => {
     // Simulate stdin by providing input via a Readable stream
     const { Readable } = await import("stream");
@@ -222,7 +212,7 @@ describe("CLI interactive do", () => {
     });
     try {
       const promise = captureStdout(() =>
-        testProgram("--data-dir", dataDir, "do"),
+        runProgram("--data-dir", dataDir, "do"),
       );
       // Feed the title after a tick (readline needs to be listening)
       await new Promise((r) => setTimeout(r, 10));
@@ -255,7 +245,7 @@ describe("CLI list by tag", () => {
 
   it("lists only actions with the given tag", async () => {
     const output = await captureStdout(() =>
-      testProgram("--data-dir", dataDir, "list", "++urgent"),
+      runProgram("--data-dir", dataDir, "list", "++urgent"),
     );
     expect(output).toContain("Fix bug ++urgent");
     expect(output).not.toContain("Write docs");
@@ -264,7 +254,7 @@ describe("CLI list by tag", () => {
 
   it("shows empty message when no actions match", async () => {
     const output = await captureStdout(() =>
-      testProgram("--data-dir", dataDir, "list", "++nonexistent"),
+      runProgram("--data-dir", dataDir, "list", "++nonexistent"),
     );
     expect(output).toContain("No actions with tag ++nonexistent.");
   });
