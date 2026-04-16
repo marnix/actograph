@@ -6,6 +6,7 @@ import { randomUUID } from "crypto";
 import { generateSlug } from "../domain/action-id.js";
 import { findAction } from "./find-action.js";
 import {
+  type Annotations,
   buildAnnotations,
   formatActionLabel,
   formatTagLabel,
@@ -70,6 +71,27 @@ export function createProgram(): Command {
     );
   }
 
+  /** Render a list of actions as an SP tree. */
+  function renderActionList(
+    visible: Action[],
+    allActions: Action[],
+    priorities: Priority[],
+    labelFn: (a: Action, ann: Annotations) => string,
+    sort: boolean,
+  ): string {
+    const annotations = buildAnnotations(visible, allActions, priorities);
+    const actionMap = new Map(visible.map((a) => [a.uuid, a]));
+    const graph = computeWorkOrder(visible, priorities, allActions);
+    let sp = spDecompose(graph);
+    if (sort) {
+      sp = sortSP(sp, (uuid) => actionMap.get(uuid)?.state ?? "open");
+    }
+    return renderSP(sp, (uuid) => {
+      const a = actionMap.get(uuid);
+      return a ? labelFn(a, annotations) : uuid;
+    });
+  }
+
   // --- Work ---
 
   program
@@ -113,18 +135,15 @@ export function createProgram(): Command {
             console.log(`No actions with tag ${tag}.`);
             return;
           }
-          const annotations = buildAnnotations(filtered, actions, priorities);
-          const actionMap = new Map(filtered.map((a) => [a.uuid, a]));
-          const graph = computeWorkOrder(filtered, priorities, actions);
-          const sp = sortSP(
-            spDecompose(graph),
-            (uuid) => actionMap.get(uuid)?.state ?? "open",
+          console.log(
+            renderActionList(
+              filtered,
+              actions,
+              priorities,
+              (a, ann) => formatActionLabel(a, ann),
+              true,
+            ),
           );
-          const output = renderSP(sp, (uuid) => {
-            const a = actionMap.get(uuid);
-            return a ? formatActionLabel(a, annotations) : uuid;
-          });
-          console.log(output);
           return;
         }
 
@@ -134,19 +153,15 @@ export function createProgram(): Command {
             console.log("No tag actions.");
             return;
           }
-          const annotations = buildAnnotations(
-            tagActions,
-            tagActions,
-            priorities,
+          console.log(
+            renderActionList(
+              tagActions,
+              tagActions,
+              priorities,
+              (a, ann) => formatTagLabel(a, ann),
+              false,
+            ),
           );
-          const graph = computeWorkOrder(tagActions, priorities);
-          const sp = spDecompose(graph);
-          const tagMap = new Map(tagActions.map((a) => [a.uuid, a]));
-          const output = renderSP(sp, (uuid) => {
-            const a = tagMap.get(uuid);
-            return a ? formatTagLabel(a, annotations) : uuid;
-          });
-          console.log(output);
           return;
         }
 
@@ -161,18 +176,15 @@ export function createProgram(): Command {
           console.log(opts.all ? "No actions." : "No open/active actions.");
           return;
         }
-        const annotations = buildAnnotations(visible, actions, priorities);
-        const actionMap = new Map(visible.map((a) => [a.uuid, a]));
-        const graph = computeWorkOrder(visible, priorities, actions);
-        const sp = sortSP(
-          spDecompose(graph),
-          (uuid) => actionMap.get(uuid)?.state ?? "open",
+        console.log(
+          renderActionList(
+            visible,
+            actions,
+            priorities,
+            (a, ann) => formatActionLabel(a, ann),
+            true,
+          ),
         );
-        const output = renderSP(sp, (uuid) => {
-          const a = actionMap.get(uuid);
-          return a ? formatActionLabel(a, annotations) : uuid;
-        });
-        console.log(output);
       },
     );
 
