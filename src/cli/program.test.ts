@@ -11,6 +11,13 @@ function testProgram(...args: string[]) {
     writeErr: () => {},
     writeOut: () => {},
   });
+  for (const cmd of program.commands) {
+    cmd.exitOverride();
+    cmd.configureOutput({
+      writeErr: () => {},
+      writeOut: () => {},
+    });
+  }
   return program.parseAsync(["node", "acto", ...args]);
 }
 
@@ -25,6 +32,13 @@ function testProgramStderr(...args: string[]): {
     writeErr: (s) => lines.push(s),
     writeOut: () => {},
   });
+  for (const cmd of program.commands) {
+    cmd.exitOverride();
+    cmd.configureOutput({
+      writeErr: (s) => lines.push(s),
+      writeOut: () => {},
+    });
+  }
   return {
     promise: program.parseAsync(["node", "acto", ...args]),
     stderr: () => lines.join(""),
