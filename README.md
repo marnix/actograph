@@ -76,6 +76,10 @@ Roughly in order, but not set in stone:
 - **Web UI** — Browser-based interface
 - **Multi-user/team collaboration**
 
+## Technical
+
+- ~~**Dependabot**~~ — enabled for npm and GitHub Actions (weekly)
+
 ## Known Issues
 
 - `slug` is optional in `ActionRecord` (automerge adapter) — investigate whether this can be made required to align with the domain `Action` type
