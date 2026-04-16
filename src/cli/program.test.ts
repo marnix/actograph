@@ -4,21 +4,19 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { createProgram } from "./program.js";
 
-function testProgram(...args: string[]) {
+function setupProgram(writeErr: (s: string) => void = () => {}) {
   const program = createProgram();
   program.exitOverride();
-  program.configureOutput({
-    writeErr: () => {},
-    writeOut: () => {},
-  });
+  program.configureOutput({ writeErr, writeOut: () => {} });
   for (const cmd of program.commands) {
     cmd.exitOverride();
-    cmd.configureOutput({
-      writeErr: () => {},
-      writeOut: () => {},
-    });
+    cmd.configureOutput({ writeErr, writeOut: () => {} });
   }
-  return program.parseAsync(["node", "acto", ...args]);
+  return program;
+}
+
+function testProgram(...args: string[]) {
+  return setupProgram().parseAsync(["node", "acto", ...args]);
 }
 
 function testProgramStderr(...args: string[]): {
@@ -26,19 +24,7 @@ function testProgramStderr(...args: string[]): {
   stderr: () => string;
 } {
   const lines: string[] = [];
-  const program = createProgram();
-  program.exitOverride();
-  program.configureOutput({
-    writeErr: (s) => lines.push(s),
-    writeOut: () => {},
-  });
-  for (const cmd of program.commands) {
-    cmd.exitOverride();
-    cmd.configureOutput({
-      writeErr: (s) => lines.push(s),
-      writeOut: () => {},
-    });
-  }
+  const program = setupProgram((s) => lines.push(s));
   return {
     promise: program.parseAsync(["node", "acto", ...args]),
     stderr: () => lines.join(""),
