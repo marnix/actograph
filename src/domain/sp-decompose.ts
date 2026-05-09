@@ -201,9 +201,9 @@ export function spDecompose(workOrder: Graph): SPNode {
     if (!reduced) break;
   }
 
-  // Check if fully reduced
+  // Check if fully reduced (only VSRC and VSNK remain)
   const finalLabels = getLabels(VSRC, VSNK);
-  if (finalLabels.length === 1) {
+  if (finalLabels.length === 1 && allNodes.size === 2) {
     const [label] = finalLabels as [Label];
     // The label is the content between VSRC and VSNK.
     // If null, all nodes were sources AND sinks (shouldn't happen with 2+ nodes).
