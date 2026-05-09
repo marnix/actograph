@@ -54,8 +54,7 @@ function flatten(node: SPNode): SPNode {
 export function spDecompose(workOrder: Graph): SPNode {
   const nodes = workOrder.nodes();
   const expected = nodes.length;
-  if (expected === 0)
-    return { type: "par", children: [] } as unknown as SPNode;
+  if (expected === 0) return { type: "par", children: [] } as unknown as SPNode;
   if (expected === 1) return { type: "action", id: nodes[0]! };
 
   // Each node gets an SPNode label (what it "means")
