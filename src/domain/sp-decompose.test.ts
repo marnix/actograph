@@ -202,4 +202,53 @@ describe("spDecompose", () => {
       "g",
     ]);
   });
+
+  it("non-SP multi-source join with parallel isolated nodes preserves all nodes", () => {
+    // A non-SP subgraph (multiple sources feeding a single sink, with
+    // internal chains) alongside isolated nodes. This reproduces a bug
+    // where the SP reduction successfully reduces the isolated nodes into
+    // a VSRC→VSNK label, then declares success — silently dropping the
+    // unreduced non-SP nodes.
+    //
+    // Structure:
+    //   s1 → s2 → s3 → sink
+    //   s1 → sink
+    //   s2 → sink
+    //   p1 → sink
+    //   p2 → sink
+    //   f → sink AND f → t  (f has two outgoing edges)
+    //   Plus isolated nodes: i1, i2, i3 (no edges)
+    //
+    const g = new Graph({ type: "directed", allowSelfLoops: false });
+    const allIds = [
+      "s1",
+      "s2",
+      "s3",
+      "sink",
+      "p1",
+      "p2",
+      "f",
+      "t",
+      "i1",
+      "i2",
+      "i3",
+    ];
+    for (const id of allIds) g.addNode(id);
+    // Chain s1→s2→s3, all feeding sink
+    g.addEdge("s1", "s2");
+    g.addEdge("s2", "s3");
+    g.addEdge("s1", "sink");
+    g.addEdge("s2", "sink");
+    g.addEdge("s3", "sink");
+    // Independent sources feeding sink
+    g.addEdge("p1", "sink");
+    g.addEdge("p2", "sink");
+    // Fork: f feeds both sink and t
+    g.addEdge("f", "sink");
+    g.addEdge("f", "t");
+
+    const result = spDecompose(g);
+    assertMinChildren(result);
+    expect(actionIds(result).sort()).toEqual(allIds.sort());
+  });
 });
