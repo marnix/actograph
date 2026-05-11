@@ -120,29 +120,45 @@ export function computeWorkOrder(
   const full = new Graph({ type: "directed", allowSelfLoops: false });
   for (const uuid of sourceUuids) full.addNode(uuid);
 
-  // Add prerequisite edges: required action → dependent action
+  // Collect all direct prerequisite pairs (as a set for O(1) lookup)
+  const directPrereqs = new Set<string>();
   for (const action of source) {
     const allPrereqs = [
       ...action.prerequisites,
       ...(extraPrereqs.get(action.uuid) ?? []),
     ];
     for (const prereq of allPrereqs) {
-      if (
-        sourceUuids.has(prereq.uuid) &&
-        !full.hasEdge(prereq.uuid, action.uuid)
-      ) {
-        full.addEdge(prereq.uuid, action.uuid);
+      if (sourceUuids.has(prereq.uuid)) {
+        directPrereqs.add(`${prereq.uuid}\0${action.uuid}`);
       }
     }
   }
 
-  // Add priority edges oldest-first, skipping any that would create a cycle
+  // Build work order edges with explicit semantics:
+  //   A before B iff:
+  //     - A is a direct prereq of B, OR
+  //     - A directly takes prio over B AND B is NOT a direct prereq of A
+  //
+  // Prereq edges are unconditional; prio edges are added oldest-first,
+  // skipping any that would create a cycle.
+
+  // Add prerequisite edges
+  for (const key of directPrereqs) {
+    const [from, to] = key.split("\0") as [string, string];
+    if (!full.hasEdge(from, to)) {
+      full.addEdge(from, to);
+    }
+  }
+
+  // Add priority edges oldest-first, skipping cycles
   const allPrios = [...priorities, ...extraPrios];
   const sorted = allPrios
     .filter((p) => sourceUuids.has(p.higher) && sourceUuids.has(p.lower))
     .sort((a, b) => a.createdAt - b.createdAt);
 
   for (const p of sorted) {
+    // Skip if B is a direct prereq of A (prio would contradict dependency)
+    if (directPrereqs.has(`${p.lower}\0${p.higher}`)) continue;
     if (
       !full.hasEdge(p.higher, p.lower) &&
       !wouldCreateCycle(full, p.higher, p.lower)
@@ -151,7 +167,16 @@ export function computeWorkOrder(
     }
   }
 
-  if (!allActions) return full;
+  // Resolve N-shapes to make the graph series-parallel.
+  // An N-shape is R←P→S←Q where Q has no edge to R.
+  // Adding Q→R makes it (P||Q) >> (R||S).
+  // Only resolve on the final visible graph — resolving on the full
+  // graph before contraction can create spurious ordering between
+  // visible actions through hidden intermediaries.
+  if (!allActions) {
+    resolveNShapes(full);
+    return full;
+  }
 
   // Contract hidden nodes: for each hidden node, connect its
   // in-neighbors directly to its out-neighbors, then drop it.
@@ -168,7 +193,59 @@ export function computeWorkOrder(
     full.dropNode(uuid);
   }
 
+  // Resolve N-shapes on the contracted visible graph.
+  resolveNShapes(full);
+
   return full;
+}
+
+/**
+ * Iteratively resolve N-shapes until the graph is series-parallel.
+ * An N-shape is: P→R, P→S, Q→S exist, and Q cannot reach R.
+ * (Transitive edges are not N-shapes — if Q can already reach R
+ * via some path, the ordering is already implied.)
+ * Resolution: add edge Q→R.
+ */
+function resolveNShapes(graph: Graph): void {
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const s of graph.nodes()) {
+      const inS = graph.inNeighbors(s);
+      if (inS.length < 2) continue;
+      for (const p of inS) {
+        for (const r of graph.outNeighbors(p)) {
+          if (r === s) continue;
+          for (const q of inS) {
+            if (q === p) continue;
+            if (q === r) continue;
+            // Only a real N-shape if Q cannot reach R at all
+            // and adding Q→R wouldn't create a cycle (R cannot reach Q)
+            if (!canReach(graph, q, r) && !canReach(graph, r, q)) {
+              graph.addEdge(q, r);
+              changed = true;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+/** Check if source can reach target via any directed path. */
+function canReach(graph: Graph, source: string, target: string): boolean {
+  const visited = new Set<string>();
+  const stack = [source];
+  while (stack.length > 0) {
+    const node = stack.pop() as string;
+    if (node === target) return true;
+    if (visited.has(node)) continue;
+    visited.add(node);
+    for (const neighbor of graph.outNeighbors(node)) {
+      if (!visited.has(neighbor)) stack.push(neighbor);
+    }
+  }
+  return false;
 }
 
 export function addPrerequisite(
