@@ -80,6 +80,7 @@ Roughly in order, but not set in stone:
 ## Known Issues
 
 - `slug` is optional in `ActionRecord` (automerge adapter) — investigate whether this can be made required to align with the domain `Action` type
+- `canReach` and `wouldCreateCycle` in `work-order.ts` are hand-rolled BFS/DFS — consider replacing with `graphology-traversal` for clarity
 
 ## License
 
