@@ -39,14 +39,14 @@ interface Action {
 The state of a tracking action is never stored — it is derived on
 every read:
 
-| Prerequisite states          | Tracking action state |
-|------------------------------|-----------------------|
-| Any prerequisite is Active   | Active                |
-| All prerequisites are Done   | Done                  |
-| All prerequisites are Skipped| Skipped               |
-| Mix of Done and Skipped      | Done                  |
-| Any prerequisite is Open     | Open                  |
-| No prerequisites             | Open                  |
+| Prerequisite states           | Tracking action state |
+| ----------------------------- | --------------------- |
+| Any prerequisite is Active    | Active                |
+| All prerequisites are Done    | Done                  |
+| All prerequisites are Skipped | Skipped               |
+| Mix of Done and Skipped       | Done                  |
+| Any prerequisite is Open      | Open                  |
+| No prerequisites              | Open                  |
 
 Rationale for "mix of Done and Skipped → Done": the tracking action
 represents a goal. If some sub-tasks were completed and the rest
@@ -321,7 +321,7 @@ _Open question._ Start dates could be modeled as:
 - `++after:2026-05-01` tag on the action, with future UI support
   to hide actions whose `after:` date hasn't arrived.
 - A prerequisite on a date-shaped action: `acto req ++2026-05-01
-  my-action` — but this confuses "deadline" with "start after."
+my-action` — but this confuses "deadline" with "start after."
 - A separate `++start:2026-05-01` convention, distinct from
   `++after:`, with different semantics (soft hint vs hard gate).
 
