@@ -22,6 +22,14 @@ function assertValid(node: SPNode): void {
   for (const child of node.children) assertValid(child);
 }
 
+// Count action nodes in an SP tree (O(n), no allocation beyond the stack)
+function actionCount(node: SPNode): number {
+  if (node.type === "action") return 1;
+  let n = 0;
+  for (const child of node.children) n += actionCount(child);
+  return n;
+}
+
 // Flatten nested seq-in-seq and par-in-par, and unwrap single-child wrappers
 function flatten(node: SPNode): SPNode {
   if (node.type === "action") return node;
@@ -45,9 +53,9 @@ function flatten(node: SPNode): SPNode {
 
 export function spDecompose(workOrder: Graph): SPNode {
   const nodes = workOrder.nodes();
-  if (nodes.length === 0)
-    return { type: "par", children: [] } as unknown as SPNode;
-  if (nodes.length === 1) return { type: "action", id: nodes[0]! };
+  const expected = nodes.length;
+  if (expected === 0) return { type: "par", children: [] } as unknown as SPNode;
+  if (expected === 1) return { type: "action", id: nodes[0]! };
 
   // Each node gets an SPNode label (what it "means")
   const nodeLabel = new Map<string, SPNode>();
@@ -201,29 +209,32 @@ export function spDecompose(workOrder: Graph): SPNode {
     if (!reduced) break;
   }
 
-  // Check if fully reduced
+  // Check if fully reduced (only VSRC and VSNK remain)
+  let result: SPNode;
   const finalLabels = getLabels(VSRC, VSNK);
-  if (finalLabels.length === 1) {
+  if (finalLabels.length === 1 && allNodes.size === 2) {
     const [label] = finalLabels as [Label];
-    // The label is the content between VSRC and VSNK.
-    // If null, all nodes were sources AND sinks (shouldn't happen with 2+ nodes).
-    // Otherwise, wrap: the label might not include the source/sink nodes if they
-    // were directly connected to VSRC/VSNK.
     if (label === null) {
       // All nodes are independent
       const children = nodes.map((id) => ({ type: "action" as const, id }));
       if (children.length === 1) return children[0]!;
-      const result: SPNode = { type: "par", children };
-      assertValid(result);
-      return result;
+      result = { type: "par", children };
+    } else {
+      result = flatten(label);
     }
-    const result = flatten(label);
-    if (result.type !== "action") assertValid(result);
-    return result;
+  } else {
+    // Not fully SP — fallback
+    result = fallbackDecompose(workOrder);
   }
 
-  // Not fully SP — fallback
-  return fallbackDecompose(workOrder);
+  if (result.type !== "action") assertValid(result);
+  const actual = actionCount(result);
+  if (actual !== expected) {
+    throw new Error(
+      `spDecompose: expected ${expected} actions but result contains ${actual}`,
+    );
+  }
+  return result;
 }
 
 function fallbackDecompose(workOrder: Graph): SPNode {
