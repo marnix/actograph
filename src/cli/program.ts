@@ -76,7 +76,7 @@ export function createProgram(): Command {
     visible: Action[],
     allActions: Action[],
     priorities: Priority[],
-    labelFn: (a: Action, ann: Annotations) => string,
+    labelFn: (a: Action, ann: Annotations, blocked: boolean) => string,
     sort: boolean,
   ): string {
     const annotations = buildAnnotations(visible, allActions, priorities);
@@ -98,8 +98,7 @@ export function createProgram(): Command {
       (uuid) => {
         const a = actionMap.get(uuid);
         if (!a) return uuid;
-        const prefix = sources.has(uuid) ? "► " : "  ";
-        return prefix + labelFn(a, annotations);
+        return labelFn(a, annotations, !sources.has(uuid));
       },
       {
         nFreeEdges,
@@ -156,7 +155,7 @@ export function createProgram(): Command {
               filtered,
               actions,
               priorities,
-              (a, ann) => formatActionLabel(a, ann),
+              (a, ann, blocked) => formatActionLabel(a, ann, blocked),
               true,
             ),
           );
@@ -174,7 +173,7 @@ export function createProgram(): Command {
               tagActions,
               tagActions,
               priorities,
-              (a, ann) => formatTagLabel(a, ann),
+              (a, ann, _blocked) => formatTagLabel(a, ann),
               false,
             ),
           );
@@ -197,7 +196,7 @@ export function createProgram(): Command {
             visible,
             actions,
             priorities,
-            (a, ann) => formatActionLabel(a, ann),
+            (a, ann, blocked) => formatActionLabel(a, ann, blocked),
             true,
           ),
         );
