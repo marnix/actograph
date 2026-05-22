@@ -11,9 +11,27 @@
 
 import type { SPNode } from "./sp-decompose.js";
 
-export function renderSP(node: SPNode, label: (id: string) => string): string {
+export interface RenderOptions {
+  /** Edges added for N-free resolution: Set of "source\0target" strings. */
+  nFreeEdges?: Set<string>;
+  /** Short label for N-free edge sources (defaults to label). */
+  shortLabel?: (id: string) => string;
+}
+
+export function renderSP(
+  node: SPNode,
+  label: (id: string) => string,
+  options?: RenderOptions,
+): string {
   const lines: string[] = [];
-  render(node, label, [], lines);
+  render(
+    node,
+    label,
+    [],
+    lines,
+    options?.nFreeEdges,
+    options?.shortLabel ?? label,
+  );
   return lines.join("\n");
 }
 
@@ -22,11 +40,25 @@ function render(
   label: (id: string) => string,
   prefix: string[],
   lines: string[],
+  nFreeEdges?: Set<string>,
+  shortLabel?: (id: string) => string,
 ): void {
   switch (node.type) {
-    case "action":
-      lines.push([...prefix, label(node.id)].join("  "));
+    case "action": {
+      let line = [...prefix, label(node.id)].join("  ");
+      if (nFreeEdges) {
+        const sources: string[] = [];
+        for (const key of nFreeEdges) {
+          const [src, tgt] = key.split("\0") as [string, string];
+          if (tgt === node.id) sources.push(src);
+        }
+        if (sources.length > 0) {
+          line += "  || " + sources.map(shortLabel ?? label).join(", ");
+        }
+      }
+      lines.push(line);
       break;
+    }
     case "par":
       for (let i = 0; i < node.children.length; i++) {
         if (
@@ -38,7 +70,14 @@ function render(
         ) {
           lines.push([...prefix, "||"].join("  "));
         }
-        render(node.children[i]!, label, [...prefix, "||"], lines);
+        render(
+          node.children[i]!,
+          label,
+          [...prefix, "||"],
+          lines,
+          nFreeEdges,
+          shortLabel,
+        );
       }
       break;
     case "seq":
@@ -52,7 +91,14 @@ function render(
         ) {
           lines.push([...prefix, ">>"].join("  "));
         }
-        render(node.children[i]!, label, [...prefix, ">>"], lines);
+        render(
+          node.children[i]!,
+          label,
+          [...prefix, ">>"],
+          lines,
+          nFreeEdges,
+          shortLabel,
+        );
       }
       break;
   }

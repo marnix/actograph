@@ -46,7 +46,7 @@ describe("prio between tag actions", () => {
       { higher: "t1", lower: "t2", createdAt: 0 },
     ];
     const visible = actions.filter((a) => !isTagTitle(a.title));
-    const graph = computeWorkOrder(visible, priorities, actions);
+    const { graph } = computeWorkOrder(visible, priorities, actions);
     expect(graph.hasEdge("a1", "a2")).toBe(true);
   });
 });
@@ -63,7 +63,7 @@ describe("tag prio in ASCII output", () => {
       { higher: "t1", lower: "t2", createdAt: 0 },
     ];
     const visible = actions.filter((a) => !isTagTitle(a.title));
-    const graph = computeWorkOrder(visible, priorities, actions);
+    const { graph } = computeWorkOrder(visible, priorities, actions);
     const sp = spDecompose(graph);
 
     const actionMap = new Map(visible.map((a) => [a.uuid, a]));
@@ -105,7 +105,7 @@ describe("tag prio in ASCII output", () => {
       { higher: "t1", lower: "t2", createdAt: 0 },
     ];
     const visible = actions.filter((a) => !isTagTitle(a.title));
-    const graph = computeWorkOrder(visible, priorities, actions);
+    const { graph } = computeWorkOrder(visible, priorities, actions);
     expect(graph.hasEdge("a1", "a3")).toBe(true);
     expect(graph.hasEdge("a2", "a3")).toBe(true);
   });
@@ -118,7 +118,7 @@ describe("tag prio in ASCII output", () => {
       makeAction("a2", "Polish UI ++nicetohave"),
     ];
     const visible = actions.filter((a) => !isTagTitle(a.title));
-    const graph = computeWorkOrder(visible, [], actions);
+    const { graph } = computeWorkOrder(visible, [], actions);
     expect(graph.hasEdge("a1", "a2")).toBe(false);
     expect(graph.hasEdge("a2", "a1")).toBe(false);
   });

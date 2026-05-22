@@ -81,15 +81,26 @@ export function createProgram(): Command {
   ): string {
     const annotations = buildAnnotations(visible, allActions, priorities);
     const actionMap = new Map(visible.map((a) => [a.uuid, a]));
-    const graph = computeWorkOrder(visible, priorities, allActions);
+    const { graph, nFreeEdges } = computeWorkOrder(
+      visible,
+      priorities,
+      allActions,
+    );
     let sp = spDecompose(graph);
     if (sort) {
       sp = sortSP(sp, (uuid) => actionMap.get(uuid)?.state ?? "open");
     }
-    return renderSP(sp, (uuid) => {
-      const a = actionMap.get(uuid);
-      return a ? labelFn(a, annotations) : uuid;
-    });
+    return renderSP(
+      sp,
+      (uuid) => {
+        const a = actionMap.get(uuid);
+        return a ? labelFn(a, annotations) : uuid;
+      },
+      {
+        nFreeEdges,
+        shortLabel: (uuid) => actionMap.get(uuid)?.slug ?? uuid,
+      },
+    );
   }
 
   // --- Work ---

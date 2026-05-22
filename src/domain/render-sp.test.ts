@@ -143,4 +143,39 @@ describe("renderSP", () => {
 >>  ||  d`),
     );
   });
+
+  it("annotates N-free edge targets with shortLabel", () => {
+    // seq(par(seq(a, b), c), d) with N-free edge a→d
+    const sp: SPNode = {
+      type: "seq",
+      children: [
+        {
+          type: "par",
+          children: [
+            {
+              type: "seq",
+              children: [
+                { type: "action", id: "a" },
+                { type: "action", id: "b" },
+              ],
+            },
+            { type: "action", id: "c" },
+          ],
+        },
+        { type: "action", id: "d" },
+      ],
+    };
+    const nFreeEdges = new Set(["a\0d"]);
+    expect(
+      renderSP(sp, (s) => `[ ] ${s}`, { nFreeEdges, shortLabel: id }),
+    ).toBe(
+      trim(`
+>>  ||  >>  [ ] a
+>>  ||  >>  [ ] b
+>>  ||
+>>  ||  [ ] c
+>>
+>>  [ ] d  || a`),
+    );
+  });
 });

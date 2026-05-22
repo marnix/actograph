@@ -106,11 +106,17 @@ export function wouldCreateCycle(
   return false;
 }
 
+export interface WorkOrderResult {
+  graph: Graph;
+  /** Edges added by N-shape resolution: Set of "source\0target" strings. */
+  nFreeEdges: Set<string>;
+}
+
 export function computeWorkOrder(
   actions: ActionSummary[],
   priorities: Priority[],
   allActions?: ActionSummary[],
-): Graph {
+): WorkOrderResult {
   const source = allActions ?? actions;
   const sourceUuids = new Set(source.map((a) => a.uuid));
 
@@ -174,8 +180,8 @@ export function computeWorkOrder(
   // graph before contraction can create spurious ordering between
   // visible actions through hidden intermediaries.
   if (!allActions) {
-    resolveNShapes(full);
-    return full;
+    const nFreeEdges = resolveNShapes(full);
+    return { graph: full, nFreeEdges };
   }
 
   // Contract hidden nodes: for each hidden node, connect its
@@ -194,9 +200,9 @@ export function computeWorkOrder(
   }
 
   // Resolve N-shapes on the contracted visible graph.
-  resolveNShapes(full);
+  const nFreeEdges = resolveNShapes(full);
 
-  return full;
+  return { graph: full, nFreeEdges };
 }
 
 /**
@@ -205,8 +211,10 @@ export function computeWorkOrder(
  * (Transitive edges are not N-shapes — if Q can already reach R
  * via some path, the ordering is already implied.)
  * Resolution: add edge Q→R.
+ * Returns the set of added edges as "source\0target" strings.
  */
-function resolveNShapes(graph: Graph): void {
+function resolveNShapes(graph: Graph): Set<string> {
+  const added = new Set<string>();
   let changed = true;
   while (changed) {
     changed = false;
@@ -223,6 +231,7 @@ function resolveNShapes(graph: Graph): void {
             // and adding Q→R wouldn't create a cycle (R cannot reach Q)
             if (!canReach(graph, q, r) && !canReach(graph, r, q)) {
               graph.addEdge(q, r);
+              added.add(`${q}\0${r}`);
               changed = true;
             }
           }
@@ -230,6 +239,7 @@ function resolveNShapes(graph: Graph): void {
       }
     }
   }
+  return added;
 }
 
 /** Check if source can reach target via any directed path. */
@@ -257,7 +267,7 @@ export function addPrerequisite(
   const target = actions.find((a) => a.uuid === toUuid);
   if (!target) throw new Error(`Action not found: ${toUuid}`);
   if (target.prerequisites.some((p) => p.uuid === fromUuid)) return;
-  const graph = computeWorkOrder(actions, priorities);
+  const { graph } = computeWorkOrder(actions, priorities);
   if (wouldCreateCycle(graph, fromUuid, toUuid)) {
     throw new Error(
       `Cannot add prerequisite: ${fromUuid} → ${toUuid} would create a cycle`,
@@ -274,7 +284,7 @@ export function addPriority(
 ): void {
   if (priorities.some((p) => p.higher === higherUuid && p.lower === lowerUuid))
     return;
-  const graph = computeWorkOrder(actions, priorities);
+  const { graph } = computeWorkOrder(actions, priorities);
   if (wouldCreateCycle(graph, higherUuid, lowerUuid)) {
     throw new Error(
       `Cannot add priority: ${higherUuid} → ${lowerUuid} would create a cycle`,
