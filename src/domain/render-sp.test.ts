@@ -170,12 +170,12 @@ describe("renderSP", () => {
       renderSP(sp, (s) => `[ ] ${s}`, { nFreeEdges, shortLabel: id }),
     ).toBe(
       trim(`
->>  ||  >>  [ ] a
+>>  ||  >>  [ ] a  || ↓d
 >>  ||  >>  [ ] b
 >>  ||
 >>  ||  [ ] c
 >>
->>  [ ] d  || a`),
+>>  [ ] d  || ↑a`),
     );
   });
 });

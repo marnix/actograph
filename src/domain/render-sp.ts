@@ -47,13 +47,15 @@ function render(
     case "action": {
       let line = [...prefix, label(node.id)].join("  ");
       if (nFreeEdges) {
-        const sources: string[] = [];
+        const sl = shortLabel ?? label;
+        const parts: string[] = [];
         for (const key of nFreeEdges) {
           const [src, tgt] = key.split("\0") as [string, string];
-          if (tgt === node.id) sources.push(src);
+          if (tgt === node.id) parts.push("↑" + sl(src));
+          if (src === node.id) parts.push("↓" + sl(tgt));
         }
-        if (sources.length > 0) {
-          line += "  || " + sources.map(shortLabel ?? label).join(", ");
+        if (parts.length > 0) {
+          line += "  || " + parts.join(", ");
         }
       }
       lines.push(line);
