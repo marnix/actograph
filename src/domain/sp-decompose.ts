@@ -46,6 +46,42 @@ function flatten(node: SPNode): SPNode {
   return { type: node.type, children: flatChildren };
 }
 
+/**
+ * Remove transitive edges from a DAG in-place.
+ * An edge u→v is transitive if there exists a path u→...→v of length ≥ 2.
+ * Complexity: O(V * E) worst case — for each node, one DFS over its successors.
+ */
+function transitiveReduction(graph: Graph): void {
+  for (const u of graph.nodes()) {
+    const directSuccs = graph.outNeighbors(u);
+    if (directSuccs.length < 2) continue;
+    // For each direct successor s, find all nodes reachable from s
+    // (excluding u). If another direct successor v is reachable from s,
+    // then u→v is redundant.
+    const reachable = new Set<string>();
+    const stack: string[] = [];
+    for (const s of directSuccs) {
+      stack.push(s);
+    }
+    const visited = new Set<string>();
+    while (stack.length > 0) {
+      const node = stack.pop()!;
+      if (visited.has(node)) continue;
+      visited.add(node);
+      for (const next of graph.outNeighbors(node)) {
+        reachable.add(next);
+        if (!visited.has(next)) stack.push(next);
+      }
+    }
+    // Remove edges u→v where v is reachable from u via a longer path
+    for (const v of directSuccs) {
+      if (reachable.has(v)) {
+        graph.dropEdge(u, v);
+      }
+    }
+  }
+}
+
 // The reduction works on a multigraph where each edge carries an SPNode label.
 // We add virtual source/sink, then reduce.
 // Key insight: each edge label represents the "content" between its endpoints,
@@ -56,6 +92,9 @@ export function spDecompose(workOrder: Graph): SPNode {
   const expected = nodes.length;
   if (expected === 0) return { type: "par", children: [] } as unknown as SPNode;
   if (expected === 1) return { type: "action", id: nodes[0]! };
+
+  // Remove transitive edges so VTL reductions produce the minimal SP-tree.
+  transitiveReduction(workOrder);
 
   // Each node gets an SPNode label (what it "means")
   const nodeLabel = new Map<string, SPNode>();
@@ -203,6 +242,58 @@ export function spDecompose(workOrder: Graph): SPNode {
         removeNode(node);
         reduced = true;
         break;
+      }
+    }
+
+    // Neighborhood-equivalence reduction: two nodes with identical
+    // in-neighbors, out-neighbors, AND identical edge labels on all
+    // corresponding edges can be merged into a parallel node.
+    if (!reduced) {
+      const realNodes = [...allNodes].filter((n) => n !== VSRC && n !== VSNK);
+      for (let i = 0; i < realNodes.length && !reduced; i++) {
+        const a = realNodes[i]!;
+        const aIns = inNeighbors(a).sort();
+        const aOuts = outNeighbors(a).sort();
+        for (let j = i + 1; j < realNodes.length; j++) {
+          const b = realNodes[j]!;
+          const bIns = inNeighbors(b).sort();
+          const bOuts = outNeighbors(b).sort();
+          if (
+            aIns.length === bIns.length &&
+            aOuts.length === bOuts.length &&
+            aIns.every((v, k) => v === bIns[k]) &&
+            aOuts.every((v, k) => v === bOuts[k])
+          ) {
+            // Check that edge labels also match on all in/out edges
+            let labelsMatch = true;
+            for (const pred of aIns) {
+              const aL = getLabels(pred, a);
+              const bL = getLabels(pred, b);
+              if (JSON.stringify(aL) !== JSON.stringify(bL)) {
+                labelsMatch = false;
+                break;
+              }
+            }
+            if (labelsMatch) {
+              for (const succ of aOuts) {
+                const aL = getLabels(a, succ);
+                const bL = getLabels(b, succ);
+                if (JSON.stringify(aL) !== JSON.stringify(bL)) {
+                  labelsMatch = false;
+                  break;
+                }
+              }
+            }
+            if (!labelsMatch) continue;
+            // Merge b into a: combine their labels into a par node
+            const aLabel = nodeLabel.get(a)!;
+            const bLabel = nodeLabel.get(b)!;
+            nodeLabel.set(a, { type: "par", children: [aLabel, bLabel] });
+            removeNode(b);
+            reduced = true;
+            break;
+          }
+        }
       }
     }
 

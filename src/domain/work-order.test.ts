@@ -150,6 +150,52 @@ describe("computeWorkOrder", () => {
     const g = computeWorkOrder([action("a"), action("b", "a")], []);
     expect(edges(g)).toEqual(["a->b"]);
   });
+
+  it("prio A over B adds A->B edge when no prereq relation exists", () => {
+    const prios: Priority[] = [{ higher: "a", lower: "b", createdAt: 1 }];
+    const g = computeWorkOrder([action("a"), action("b")], prios);
+    expect(g.hasEdge("a", "b")).toBe(true);
+  });
+
+  it("prio A over B is suppressed when B is a direct prereq of A", () => {
+    // B→A exists as prereq, so A→B (prio) would create a cycle and is skipped
+    const prios: Priority[] = [{ higher: "a", lower: "b", createdAt: 1 }];
+    const g = computeWorkOrder([action("a", "b"), action("b")], prios);
+    expect(g.hasEdge("a", "b")).toBe(false);
+    expect(g.hasEdge("b", "a")).toBe(true);
+  });
+
+  it("N-shape (R←P→S←Q) is resolved by adding Q→R edge", () => {
+    // P→R (prereq), P→S (prereq), Q→S (prereq), no edge between Q and R.
+    // This is a direct N-shape: R←P→S←Q. To make it SP, we need Q→R
+    // so the result is (P || Q) >> (R || S).
+    const actions = [
+      action("P"),
+      action("Q"),
+      action("R", "P"),
+      action("S", "P", "Q"),
+    ];
+    const g = computeWorkOrder(actions, []);
+    // The N-shape resolution should add Q→R
+    expect(g.hasEdge("Q", "R")).toBe(true);
+  });
+
+  it("transitive edges do not trigger N-shape resolution", () => {
+    // A→X, X→C, X→D, B→X plus transitive edges A→C, B→D
+    // This is SP: par(A,B) >> X >> par(C,D)
+    // The transitive edges should NOT cause N-shape detection
+    const actions = [
+      action("A"),
+      action("B"),
+      action("X", "A", "B"),
+      action("C", "X", "A"), // A→C is transitive (A→X→C)
+      action("D", "X", "B"), // B→D is transitive (B→X→D)
+    ];
+    const g = computeWorkOrder(actions, []);
+    // Should NOT add B→C or A→D — graph is already SP
+    expect(g.hasEdge("B", "C")).toBe(false);
+    expect(g.hasEdge("A", "D")).toBe(false);
+  });
 });
 
 function fullAction(uuid: string, ...prereqUuids: string[]) {
