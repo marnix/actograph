@@ -90,8 +90,10 @@ describe("renderSP", () => {
     expect(renderSP(sp, id)).toBe(
       trim(`
 >>  a
+>>
 >>  ||  b
 >>  ||  c
+>>
 >>  d`),
     );
   });
@@ -134,8 +136,10 @@ describe("renderSP", () => {
     expect(renderSP(sp, id)).toBe(
       trim(`
 >>  a
+>>
 >>  ||  >>  b
 >>  ||  >>  c
+>>  ||
 >>  ||  d`),
     );
   });

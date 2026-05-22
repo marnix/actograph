@@ -31,8 +31,10 @@ function render(
       for (let i = 0; i < node.children.length; i++) {
         if (
           i > 0 &&
-          node.children[i]!.type === "seq" &&
-          node.children[i - 1]!.type === "seq"
+          !(
+            node.children[i - 1]!.type === "action" &&
+            node.children[i]!.type === "action"
+          )
         ) {
           lines.push([...prefix, "||"].join("  "));
         }
@@ -43,8 +45,10 @@ function render(
       for (let i = 0; i < node.children.length; i++) {
         if (
           i > 0 &&
-          node.children[i]!.type === "par" &&
-          node.children[i - 1]!.type === "par"
+          !(
+            node.children[i - 1]!.type === "action" &&
+            node.children[i]!.type === "action"
+          )
         ) {
           lines.push([...prefix, ">>"].join("  "));
         }
