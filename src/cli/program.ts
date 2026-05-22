@@ -86,6 +86,9 @@ export function createProgram(): Command {
       priorities,
       allActions,
     );
+    const sources = new Set(
+      graph.nodes().filter((n) => graph.inDegree(n) === 0),
+    );
     let sp = spDecompose(graph);
     if (sort) {
       sp = sortSP(sp, (uuid) => actionMap.get(uuid)?.state ?? "open");
@@ -94,7 +97,9 @@ export function createProgram(): Command {
       sp,
       (uuid) => {
         const a = actionMap.get(uuid);
-        return a ? labelFn(a, annotations) : uuid;
+        if (!a) return uuid;
+        const prefix = sources.has(uuid) ? "► " : "  ";
+        return prefix + labelFn(a, annotations);
       },
       {
         nFreeEdges,
