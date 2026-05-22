@@ -17,8 +17,8 @@ function action(uuid: string, ...prereqUuids: string[]) {
   };
 }
 
-function edges(graph: ReturnType<typeof computeWorkOrder>): string[] {
-  return graph
+function edges(result: ReturnType<typeof computeWorkOrder>): string[] {
+  return result.graph
     .mapEdges((_e, _a, source, target) => `${source}->${target}`)
     .sort();
 }
@@ -26,14 +26,14 @@ function edges(graph: ReturnType<typeof computeWorkOrder>): string[] {
 describe("computeWorkOrder", () => {
   it("no actions, empty graph", () => {
     const g = computeWorkOrder([], []);
-    expect(g.order).toBe(0);
-    expect(g.size).toBe(0);
+    expect(g.graph.order).toBe(0);
+    expect(g.graph.size).toBe(0);
   });
 
   it("single action, no edges", () => {
     const g = computeWorkOrder([action("a")], []);
-    expect(g.order).toBe(1);
-    expect(g.size).toBe(0);
+    expect(g.graph.order).toBe(1);
+    expect(g.graph.size).toBe(0);
   });
 
   it("two unrelated actions, no edges", () => {
@@ -154,15 +154,15 @@ describe("computeWorkOrder", () => {
   it("prio A over B adds A->B edge when no prereq relation exists", () => {
     const prios: Priority[] = [{ higher: "a", lower: "b", createdAt: 1 }];
     const g = computeWorkOrder([action("a"), action("b")], prios);
-    expect(g.hasEdge("a", "b")).toBe(true);
+    expect(g.graph.hasEdge("a", "b")).toBe(true);
   });
 
   it("prio A over B is suppressed when B is a direct prereq of A", () => {
     // B→A exists as prereq, so A→B (prio) would create a cycle and is skipped
     const prios: Priority[] = [{ higher: "a", lower: "b", createdAt: 1 }];
     const g = computeWorkOrder([action("a", "b"), action("b")], prios);
-    expect(g.hasEdge("a", "b")).toBe(false);
-    expect(g.hasEdge("b", "a")).toBe(true);
+    expect(g.graph.hasEdge("a", "b")).toBe(false);
+    expect(g.graph.hasEdge("b", "a")).toBe(true);
   });
 
   it("N-shape (R←P→S←Q) is resolved by adding Q→R edge", () => {
@@ -177,7 +177,8 @@ describe("computeWorkOrder", () => {
     ];
     const g = computeWorkOrder(actions, []);
     // The N-shape resolution should add Q→R
-    expect(g.hasEdge("Q", "R")).toBe(true);
+    expect(g.graph.hasEdge("Q", "R")).toBe(true);
+    expect(g.nFreeEdges.has("Q\0R")).toBe(true);
   });
 
   it("transitive edges do not trigger N-shape resolution", () => {
@@ -193,8 +194,8 @@ describe("computeWorkOrder", () => {
     ];
     const g = computeWorkOrder(actions, []);
     // Should NOT add B→C or A→D — graph is already SP
-    expect(g.hasEdge("B", "C")).toBe(false);
-    expect(g.hasEdge("A", "D")).toBe(false);
+    expect(g.graph.hasEdge("B", "C")).toBe(false);
+    expect(g.graph.hasEdge("A", "D")).toBe(false);
   });
 });
 
@@ -332,7 +333,7 @@ describe("tag inheritance via expandTagRelations", () => {
     const actions = [tagUrgent, a1];
     const prios: Priority[] = [{ higher: "t1", lower: "t1", createdAt: 0 }];
     const g = computeWorkOrder(actions, prios);
-    expect(g.size).toBe(0);
+    expect(g.graph.size).toBe(0);
   });
 
   it("action with multiple tags inherits from all", () => {
@@ -365,7 +366,7 @@ describe("tag inheritance via expandTagRelations", () => {
     const visible = [a1, a2];
     const prios: Priority[] = [{ higher: "t1", lower: "t2", createdAt: 0 }];
     const g = computeWorkOrder(visible, prios, all);
-    expect(g.hasEdge("a1", "a2")).toBe(true);
+    expect(g.graph.hasEdge("a1", "a2")).toBe(true);
   });
 
   it("tag prio preserved in --all with done prereq", () => {
@@ -384,6 +385,6 @@ describe("tag inheritance via expandTagRelations", () => {
     const prios: Priority[] = [{ higher: "t1", lower: "t2", createdAt: 0 }];
     const g = computeWorkOrder(visible, prios, all);
     // impl (urgent) should have priority over docs (nicetohave)
-    expect(g.hasEdge("impl", "docs")).toBe(true);
+    expect(g.graph.hasEdge("impl", "docs")).toBe(true);
   });
 });

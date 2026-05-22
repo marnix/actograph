@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc --build",
-    "build:verify": "node -e \"import('fs').then(f=>{f.rmSync('dist',{recursive:true,force:true})})\" && tsc --build && node dist/index.js --version",
+    "build:verify": "npm run clean && tsc --build && node dist/index.js --version",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
     "acto": "npm run build && ./acto",
@@ -15,7 +15,7 @@
     "format:check": "prettier --check .",
     "check": "concurrently --success all 'npm:typecheck' 'npm:format:check' 'npm:test'",
     "ci": "npm run build:verify && npm run check",
-    "clean": "rm -rf dist"
+    "clean": "node -e \"import('fs').then(f=>{f.rmSync('dist',{recursive:true,force:true})})\""
   },
   "dependencies": {
     "@automerge/automerge": "^3.2.6",

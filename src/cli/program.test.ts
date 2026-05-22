@@ -130,7 +130,7 @@ describe("CLI parallel action sorting", () => {
     );
     const lines = output.trim().split("\n");
     const titles = lines
-      .map((l) => l.match(/\]\s+(.+?)\s+\(/)?.[1])
+      .map((l) => l.match(/[●○▶▷✓✗]\s+(.+?)\s+\(/)?.[1])
       .filter(Boolean);
     expect(titles.indexOf("Beta task")).toBeLessThan(
       titles.indexOf("Alpha task"),

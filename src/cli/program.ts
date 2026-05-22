@@ -26,6 +26,7 @@ import {
 } from "../domain/tags.js";
 import {
   computeWorkOrder,
+  expandTagRelations,
   addPrerequisite,
   addPriority,
   removePrerequisite,
@@ -76,20 +77,50 @@ export function createProgram(): Command {
     visible: Action[],
     allActions: Action[],
     priorities: Priority[],
-    labelFn: (a: Action, ann: Annotations) => string,
+    labelFn: (a: Action, ann: Annotations, blocked: boolean) => string,
     sort: boolean,
   ): string {
     const annotations = buildAnnotations(visible, allActions, priorities);
     const actionMap = new Map(visible.map((a) => [a.uuid, a]));
-    const graph = computeWorkOrder(visible, priorities, allActions);
+    const { graph, nFreeEdges } = computeWorkOrder(
+      visible,
+      priorities,
+      allActions,
+    );
+    // An action is unblocked if all its prerequisites are done or skipped.
+    const stateByUuid = new Map(allActions.map((a) => [a.uuid, a.state]));
+    const { extraPrereqs } = expandTagRelations(allActions, priorities);
+    const blocked = new Set<string>();
+    for (const a of visible) {
+      const allPrereqs = [
+        ...a.prerequisites,
+        ...(extraPrereqs.get(a.uuid) ?? []),
+      ];
+      if (
+        allPrereqs.some((p) => {
+          const s = stateByUuid.get(p.uuid);
+          return s !== undefined && s !== "done" && s !== "skipped";
+        })
+      ) {
+        blocked.add(a.uuid);
+      }
+    }
     let sp = spDecompose(graph);
     if (sort) {
       sp = sortSP(sp, (uuid) => actionMap.get(uuid)?.state ?? "open");
     }
-    return renderSP(sp, (uuid) => {
-      const a = actionMap.get(uuid);
-      return a ? labelFn(a, annotations) : uuid;
-    });
+    return renderSP(
+      sp,
+      (uuid) => {
+        const a = actionMap.get(uuid);
+        if (!a) return uuid;
+        return labelFn(a, annotations, blocked.has(uuid));
+      },
+      {
+        nFreeEdges,
+        shortLabel: (uuid) => actionMap.get(uuid)?.slug ?? uuid,
+      },
+    );
   }
 
   // --- Work ---
@@ -140,7 +171,7 @@ export function createProgram(): Command {
               filtered,
               actions,
               priorities,
-              (a, ann) => formatActionLabel(a, ann),
+              (a, ann, blocked) => formatActionLabel(a, ann, blocked),
               true,
             ),
           );
@@ -158,7 +189,7 @@ export function createProgram(): Command {
               tagActions,
               tagActions,
               priorities,
-              (a, ann) => formatTagLabel(a, ann),
+              (a, ann, _blocked) => formatTagLabel(a, ann),
               false,
             ),
           );
@@ -181,7 +212,7 @@ export function createProgram(): Command {
             visible,
             actions,
             priorities,
-            (a, ann) => formatActionLabel(a, ann),
+            (a, ann, blocked) => formatActionLabel(a, ann, blocked),
             true,
           ),
         );

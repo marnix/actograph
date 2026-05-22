@@ -46,10 +46,11 @@ export function buildAnnotations(
   return { reqPreds, prioPreds, slugByUuid };
 }
 
-const STATE_MARKS: Record<string, string> = {
-  done: "✓",
-  active: "▶",
-  skipped: "–",
+const STATE_INDICATORS: Record<string, [unblocked: string, blocked: string]> = {
+  open: ["●", "○"],
+  active: ["▶", "▷"],
+  done: ["✓", "✓"],
+  skipped: ["✗", "✗"],
 };
 
 function annotationSuffix(
@@ -72,10 +73,12 @@ function annotationSuffix(
 export function formatActionLabel(
   action: Action,
   annotations: Annotations,
+  blocked?: boolean,
 ): string {
-  const mark = STATE_MARKS[action.state] ?? " ";
+  const [unblocked, blockedMark] = STATE_INDICATORS[action.state] ?? ["?", "?"];
+  const mark = blocked ? blockedMark : unblocked;
   const suffix = annotationSuffix(action.uuid, annotations);
-  return `[${mark}] ${action.title}  (${action.slug})${suffix}`;
+  return `${mark} ${action.title}  (${action.slug})${suffix}`;
 }
 
 /** Format a label for a tag action in list --tags output. */

@@ -41,7 +41,7 @@ function assertPipeline(
   priorities: Priority[],
   allActions: Action[],
 ): SPNode {
-  const graph = computeWorkOrder(visible, priorities, allActions);
+  const { graph } = computeWorkOrder(visible, priorities, allActions);
   const sp = spDecompose(graph);
   assertSPMatchesGraph(sp, graph);
   return sp;
@@ -94,7 +94,7 @@ function spEdges(node: SPNode): string[] {
 }
 
 /** Extract sorted edge strings from a graphology Graph. */
-function graphEdges(graph: ReturnType<typeof computeWorkOrder>): string[] {
+function graphEdges(graph: import("graphology").default): string[] {
   return graph
     .mapEdges((_e, _a, source, target) => `${source}->${target}`)
     .sort();
@@ -106,7 +106,7 @@ function graphEdges(graph: ReturnType<typeof computeWorkOrder>): string[] {
  */
 function assertSPMatchesGraph(
   sp: SPNode,
-  graph: ReturnType<typeof computeWorkOrder>,
+  graph: import("graphology").default,
 ): void {
   expect(actionIds(sp).sort()).toEqual(graph.nodes().sort());
   expect(spEdges(sp)).toEqual(graphEdges(graph));
@@ -438,7 +438,7 @@ describe("list pipeline: real-world graph (anonymized from bugdb)", () => {
   });
 
   it("produces expected SP structure", () => {
-    const graph = computeWorkOrder(visible, [], all);
+    const { graph } = computeWorkOrder(visible, [], all);
     const sp = spDecompose(graph);
     // par of 15 children: 12 independent actions + 3 sequential chains
     //   chain 1: 14 >> 16

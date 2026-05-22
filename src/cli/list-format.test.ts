@@ -71,25 +71,25 @@ describe("formatActionLabel", () => {
 
   it("shows open state", () => {
     expect(formatActionLabel(makeAction("u1", "Do it"), empty)).toBe(
-      "[ ] Do it  (u1)",
+      "● Do it  (u1)",
     );
   });
 
   it("shows active state", () => {
     expect(formatActionLabel(makeAction("u1", "Do it", "active"), empty)).toBe(
-      "[▶] Do it  (u1)",
+      "▶ Do it  (u1)",
     );
   });
 
   it("shows done state", () => {
     expect(formatActionLabel(makeAction("u1", "Do it", "done"), empty)).toBe(
-      "[✓] Do it  (u1)",
+      "✓ Do it  (u1)",
     );
   });
 
   it("shows skipped state", () => {
     expect(formatActionLabel(makeAction("u1", "Do it", "skipped"), empty)).toBe(
-      "[–] Do it  (u1)",
+      "✗ Do it  (u1)",
     );
   });
 
@@ -103,7 +103,7 @@ describe("formatActionLabel", () => {
       ]),
     };
     expect(formatActionLabel(makeAction("u1", "Do it"), ann)).toBe(
-      "[ ] Do it  (u1)  ← req:u2",
+      "● Do it  (u1)  ← req:u2",
     );
   });
 
@@ -118,7 +118,7 @@ describe("formatActionLabel", () => {
       ]),
     };
     expect(formatActionLabel(makeAction("u1", "Do it"), ann)).toBe(
-      "[ ] Do it  (u1)  ← req:u2, prio:u3",
+      "● Do it  (u1)  ← req:u2, prio:u3",
     );
   });
 });
