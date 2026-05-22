@@ -26,6 +26,7 @@ import {
 } from "../domain/tags.js";
 import {
   computeWorkOrder,
+  expandTagRelations,
   addPrerequisite,
   addPriority,
   removePrerequisite,
@@ -86,9 +87,24 @@ export function createProgram(): Command {
       priorities,
       allActions,
     );
-    const sources = new Set(
-      graph.nodes().filter((n) => graph.inDegree(n) === 0),
-    );
+    // An action is unblocked if all its prerequisites are done or skipped.
+    const stateByUuid = new Map(allActions.map((a) => [a.uuid, a.state]));
+    const { extraPrereqs } = expandTagRelations(allActions, priorities);
+    const blocked = new Set<string>();
+    for (const a of visible) {
+      const allPrereqs = [
+        ...a.prerequisites,
+        ...(extraPrereqs.get(a.uuid) ?? []),
+      ];
+      if (
+        allPrereqs.some((p) => {
+          const s = stateByUuid.get(p.uuid);
+          return s !== undefined && s !== "done" && s !== "skipped";
+        })
+      ) {
+        blocked.add(a.uuid);
+      }
+    }
     let sp = spDecompose(graph);
     if (sort) {
       sp = sortSP(sp, (uuid) => actionMap.get(uuid)?.state ?? "open");
@@ -98,7 +114,7 @@ export function createProgram(): Command {
       (uuid) => {
         const a = actionMap.get(uuid);
         if (!a) return uuid;
-        return labelFn(a, annotations, !sources.has(uuid));
+        return labelFn(a, annotations, blocked.has(uuid));
       },
       {
         nFreeEdges,
