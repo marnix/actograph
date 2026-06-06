@@ -136,19 +136,16 @@ export function createProgram(): Command {
     .action(
       (tag: string | undefined, opts: { all?: boolean; tags?: boolean }) => {
         const adapter = new AutomergeAdapter(dbPath());
-        // One-time migration: create missing tag actions
-        adapter.transact(({ actions, priorities }) => {
-          const before = actions.length;
-          createMissingTagActions(actions, (t) => newAction(t, actions));
-          if (actions.length > before) {
-            console.error(
-              `Migrated: created ${actions.length - before} missing tag action(s)`,
-            );
-          }
-          return { actions, priorities };
-        });
-        const actions = adapter.load();
-        const priorities = adapter.loadPriorities();
+        const { actions, priorities, migrationNeeded } = adapter.loadAll(
+          (acts) => {
+            const before = acts.length;
+            createMissingTagActions(acts, (t) => newAction(t, acts));
+            return acts.length > before;
+          },
+        );
+        if (migrationNeeded) {
+          console.error(`Migrated: created missing tag action(s)`);
+        }
         adapter.close();
 
         if (tag !== undefined) {
