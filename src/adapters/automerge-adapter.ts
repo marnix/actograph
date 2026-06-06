@@ -305,26 +305,7 @@ export class AutomergeAdapter implements StoragePort {
   }
 
   load(): Action[] {
-    const doc = loadDoc(this.filePath);
-    const { actions, migrated } = docToActions(doc);
-    if (migrated) {
-      // Persist migration
-      let updated = applyActions(doc, actions);
-      const oldKeys = new Map(
-        Object.keys(doc.actions).map((k) => [
-          k,
-          actions.find((a) => a.slug === k || (isUuid(k) && a.uuid === k))
-            ?.uuid ?? k,
-        ]),
-      );
-      const priorities = migratePriorities(doc.priorities ?? [], oldKeys);
-      updated = applyPriorities(updated, priorities);
-      writeFileSync(this.filePath, Automerge.save(updated));
-      warnDanglingRefs(actions, priorities);
-    } else {
-      warnDanglingRefs(actions, docToPriorities(doc));
-    }
-    return actions;
+    return this.loadAll().actions;
   }
 
   save(actions: Action[]): void {
