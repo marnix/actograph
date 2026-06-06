@@ -9,6 +9,14 @@ export interface StoragePort {
   /** Load all priority relations from storage. */
   loadPriorities(): Priority[];
 
+  /** Load actions and priorities from a single doc parse.
+   *  Optional migrate callback mutates actions in-place; return true if changes were made. */
+  loadAll(migrate?: (actions: Action[]) => boolean): {
+    actions: Action[];
+    priorities: Priority[];
+    migrationNeeded: boolean;
+  };
+
   /** Run a load→modify→save cycle under a single lock. */
   transact(
     fn: (data: { actions: Action[]; priorities: Priority[] }) => {
