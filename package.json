@@ -28,6 +28,6 @@
     "concurrently": "^10.0.3",
     "prettier": "^3.9.5",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.10"
   }
 }
