@@ -18,7 +18,7 @@
     "clean": "node -e \"import('fs').then(f=>{f.rmSync('dist',{recursive:true,force:true})})\""
   },
   "dependencies": {
-    "@automerge/automerge": "^3.2.6",
+    "@automerge/automerge": "^3.3.2",
     "commander": "^15.0.0",
     "cuss": "^2.2.0",
     "graphology": "^0.26.0"
